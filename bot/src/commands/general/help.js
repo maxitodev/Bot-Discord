@@ -10,6 +10,7 @@ module.exports = {
             { name: "/play", description: "Reproduce una canción o playlist" },
             { name: "/stop", description: "Detiene la música y limpia la cola" },
             { name: "/skip", description: "Salta a la siguiente canción" },
+            { name: "/jump", description: "Salta a una canción específica de la cola" },
             { name: "/pause", description: "Pausa la reproducción" },
             { name: "/resume", description: "Reanuda la reproducción" },
             { name: "/queue", description: "Muestra la cola de reproducción" },
@@ -24,12 +25,12 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(client.config.colors.main)
-            .setAuthor({ 
-                name: `${client.user.username} - Centro de Ayuda`, 
-                iconURL: client.user.displayAvatarURL() 
+            .setAuthor({
+                name: `${client.user.username} - Centro de Ayuda`,
+                iconURL: client.user.displayAvatarURL()
             })
             .setDescription(
-                `¡Hola! Soy un bot de música que usa **Lavalink** para reproducir música de alta calidad.\n\n` +
+                `¡Hola! Soy un bot creado por MaxitoDev para reproducir música de alta calidad y mucho más.\n\n` +
                 `**Prefijo:** Comandos Slash (/)\n` +
                 `**Servidores:** ${client.guilds.cache.size}\n` +
                 `**Comandos:** ${client.commands.size}`
@@ -41,9 +42,9 @@ module.exports = {
                 }
             )
             .setThumbnail(client.user.displayAvatarURL({ size: 256 }))
-            .setFooter({ 
-                text: `Solicitado por ${interaction.user.tag}`, 
-                iconURL: interaction.user.displayAvatarURL() 
+            .setFooter({
+                text: `Solicitado por ${interaction.user.tag}`,
+                iconURL: interaction.user.displayAvatarURL()
             })
             .setTimestamp();
 
