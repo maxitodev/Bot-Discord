@@ -52,26 +52,27 @@ CLIENT_ID=tu_client_id
 
 ### 4. Configurar Lavalink
 
-Descarga [Lavalink.jar](https://github.com/lavalink-devs/Lavalink/releases) y colócalo en la carpeta raíz del proyecto.
+**⚠️ NOTA IMPORTANTE:** 
+Por defecto, este bot está configurado en `bot/src/config.js` para usar un **servidor Lavalink público** (Serenetia Lavalink). 
 
-El archivo `application.yml` ya está configurado. Solo necesitas configurar OAuth de YouTube (opcional pero recomendado):
+**¿Por qué?**
+Hicimos este cambio para **evitar problemas de bloqueos de YouTube (cookies/IP)** que ocurren frecuentemente al alojar el bot en un VPS (como Contabo, AWS, etc.). Los servidores públicos gestionan las sesiones de YouTube por nosotros.
 
-1. Inicia Lavalink: `java -jar Lavalink.jar`
-2. Busca en la consola el enlace de autorización de Google
-3. Autoriza y copia el refresh token al archivo `application.yml`
+Si prefieres usar tu propio servidor Lavalink local:
+1. Descarga [Lavalink.jar](https://github.com/lavalink-devs/Lavalink/releases)
+2. Edita `bot/src/config.js` para cambiar `url` a `localhost:2333` y `auth` a tu contraseña.
+3. Configura `application.yml` con tus propios tokens si es necesario.
 
 ### 5. Iniciar el bot
 
-**Terminal 1 - Lavalink:**
-```bash
-java -jar Lavalink.jar
-```
+Si usas la configuración por defecto (Lavalink público), solo necesitas:
 
-**Terminal 2 - Bot:**
 ```bash
 cd bot
 npm start
 ```
+
+*(Si usas Lavalink local, recuerda iniciarlo primero en otra terminal con `java -jar Lavalink.jar`)*
 
 ## 🎮 Comandos
 
