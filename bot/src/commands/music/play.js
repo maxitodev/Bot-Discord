@@ -36,8 +36,8 @@ module.exports = {
 
                 // Discord API limit: 100 characters for name
                 let name = `${title} - ${author}`;
-                if (name.length > 100) {
-                    name = name.substring(0, 97) + "...";
+                if (name.length > 85) { // Bajamos a 85 para ir sobrados y evitar errores
+                    name = name.substring(0, 85) + "...";
                 }
 
                 return {
