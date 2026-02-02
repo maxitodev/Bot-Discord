@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { formatDuration } = require("../../utils/formatDuration");
 
 module.exports = {
     name: "interactionCreate",
@@ -9,265 +10,108 @@ module.exports = {
         const { member, guild } = interaction;
         const player = client.manager.players.get(guild.id);
 
-        // Verificar si el usuario está en un canal de voz
+        // Allow 'save' button even without being in voice channel or player active (it saves current song)
+        if (interaction.customId === "music_save") {
+            if (!player || !player.queue.current) {
+                return interaction.reply({ content: "❌ No hay canción sonando para guardar.", ephemeral: true });
+            }
+            const track = player.queue.current;
+            const dmEmbed = new EmbedBuilder()
+                .setColor(client.config.colors.main)
+                .setTitle("💾 Canción Guardada")
+                .setThumbnail(track.thumbnail)
+                .setDescription(`**[${track.title}](${track.uri})**\n\n👤 **Autor:** ${track.author}\n⏱️ **Duración:** ${formatDuration(track.length)}`)
+                .setFooter({ text: `Guardada desde ${guild.name}` })
+                .setTimestamp();
+
+            try {
+                await member.send({ embeds: [dmEmbed] });
+                return interaction.reply({ content: "✅ Te he enviado la canción al DM.", ephemeral: true });
+            } catch (e) {
+                return interaction.reply({ content: "❌ No pude enviarte el DM. ¿Tienes los mensajes directos cerrados?", ephemeral: true });
+            }
+        }
+
+        // Standard checks for other controls
         if (!member.voice.channel) {
-            return interaction.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor(client.config.colors.error)
-                        .setDescription("❌ Debes estar en un canal de voz.")
-                ],
-                ephemeral: true
-            });
+            return interaction.reply({ content: "❌ Entra a un canal de voz.", ephemeral: true });
         }
 
-        // Verificar si hay un reproductor activo
         if (!player) {
-            return interaction.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor(client.config.colors.error)
-                        .setDescription("❌ No hay música reproduciéndose.")
-                ],
-                ephemeral: true
-            });
+            return interaction.reply({ content: "❌ No hay sesión de música activa.", ephemeral: true });
         }
 
-        // Verificar si está en el mismo canal de voz
         if (member.voice.channel.id !== player.voiceId) {
-            return interaction.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor(client.config.colors.error)
-                        .setDescription("❌ Debes estar en el mismo canal de voz.")
-                ],
-                ephemeral: true
-            });
+            return interaction.reply({ content: "❌ Debes estar en mi mismo canal.", ephemeral: true });
         }
 
         const action = interaction.customId.replace("music_", "");
 
         try {
             switch (action) {
-                case "pause": {
-                    if (player.paused) {
-                        await player.pause(false);
-                        await interaction.reply({
-                            embeds: [
-                                new EmbedBuilder()
-                                    .setColor(client.config.colors.success)
-                                    .setDescription("▶️ Música reanudada")
-                            ],
-                            ephemeral: true
-                        });
-                    } else {
-                        await player.pause(true);
-                        await interaction.reply({
-                            embeds: [
-                                new EmbedBuilder()
-                                    .setColor(client.config.colors.success)
-                                    .setDescription("⏸️ Música pausada")
-                            ],
-                            ephemeral: true
-                        });
-                    }
-                    break;
-                }
-
-                case "skip": {
-                    if (!player.queue.current) {
-                        return interaction.reply({
-                            embeds: [
-                                new EmbedBuilder()
-                                    .setColor(client.config.colors.error)
-                                    .setDescription("❌ No hay canción para saltar.")
-                            ],
-                            ephemeral: true
-                        });
-                    }
-                    await player.skip();
-                    await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor(client.config.colors.success)
-                                .setDescription("⏭️ Canción saltada")
-                        ],
-                        ephemeral: true
+                case "pause":
+                    player.pause(!player.paused);
+                    await interaction.update({
+                        components: interaction.message.components
                     });
                     break;
-                }
 
-                case "previous": {
-                    if (!player.queue.previous || player.queue.previous.length === 0) {
-                        return interaction.reply({
-                            embeds: [
-                                new EmbedBuilder()
-                                    .setColor(client.config.colors.error)
-                                    .setDescription("❌ No hay canción anterior.")
-                            ],
-                            ephemeral: true
-                        });
-                    }
-                    await player.seek(0);
-                    await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor(client.config.colors.success)
-                                .setDescription("⏮️ Reiniciando canción")
-                        ],
-                        ephemeral: true
-                    });
+                case "skip":
+                    player.skip();
+                    await interaction.reply({ content: "⏭️ **Skipped**", ephemeral: true });
                     break;
-                }
 
-                case "stop": {
-                    await player.destroy();
-                    await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor(client.config.colors.success)
-                                .setDescription("⏹️ Música detenida y desconectado")
-                        ],
-                        ephemeral: true
-                    });
+                case "previous":
+                    if (!player.queue.previous.length) return interaction.reply({ content: "❌ No hay canción previa", ephemeral: true });
+                    player.seek(0);
+                    await interaction.reply({ content: "⏮️ **Replay**", ephemeral: true });
                     break;
-                }
 
-                case "shuffle": {
-                    if (player.queue.length < 2) {
-                        return interaction.reply({
-                            embeds: [
-                                new EmbedBuilder()
-                                    .setColor(client.config.colors.error)
-                                    .setDescription("❌ Necesitas al menos 2 canciones en la cola.")
-                            ],
-                            ephemeral: true
-                        });
-                    }
+                case "stop":
+                    player.destroy();
+                    await interaction.reply({ content: "🛑 **Desconectado**", ephemeral: true });
+                    break;
+
+                case "shuffle":
                     player.queue.shuffle();
-                    await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor(client.config.colors.success)
-                                .setDescription("🔀 Cola mezclada")
-                        ],
-                        ephemeral: true
-                    });
+                    await interaction.reply({ content: "🔀 **Cola mezclada**", ephemeral: true });
                     break;
-                }
 
-                case "loop": {
+                case "loop":
                     const modes = ["none", "track", "queue"];
-                    const modeNames = { none: "Desactivado", track: "Canción", queue: "Cola" };
-                    const modeEmojis = { none: "➡️", track: "🔂", queue: "🔁" };
-                    
-                    const currentIndex = modes.indexOf(player.loop || "none");
-                    const nextMode = modes[(currentIndex + 1) % modes.length];
-                    
+                    const nextMode = modes[(modes.indexOf(player.loop || "none") + 1) % modes.length];
                     player.setLoop(nextMode);
-                    
+                    await interaction.reply({ content: `🔁 Loop: **${nextMode}**`, ephemeral: true });
+                    break;
+
+                // Volume buttons (handled silently or with update)
+                case "volup":
+                    player.setVolume(Math.min(player.volume + 10, 150));
+                    await interaction.reply({ content: `🔊 Volumen: ${player.volume}%`, ephemeral: true });
+                    break;
+
+                case "voldown":
+                    player.setVolume(Math.max(player.volume - 10, 0));
+                    await interaction.reply({ content: `🔉 Volumen: ${player.volume}%`, ephemeral: true });
+                    break;
+
+                case "queue":
+                    // Show queue logic (simplified for this update)
+                    const tracks = player.queue.slice(0, 10).map((t, i) => `${i + 1}. ${t.title.substring(0, 40)}`).join("\n");
                     await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor(client.config.colors.success)
-                                .setDescription(`${modeEmojis[nextMode]} Loop: **${modeNames[nextMode]}**`)
-                        ],
+                        embeds: [new EmbedBuilder().setColor(client.config.colors.main).setTitle("Cola Actual").setDescription(tracks || "Cola vacía...")],
                         ephemeral: true
                     });
                     break;
-                }
 
-                case "volup": {
-                    const currentVol = player.volume || 100;
-                    const newVol = Math.min(currentVol + 10, 150);
-                    player.setVolume(newVol);
-                    await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor(client.config.colors.success)
-                                .setDescription(`🔊 Volumen: **${newVol}%**`)
-                        ],
-                        ephemeral: true
-                    });
+                case "filters":
+                    // Shortcut to filters (if command existed, but simple reply for now)
+                    await interaction.reply({ content: "🎛️ Usa el comando `/filters` para ajustar el audio.", ephemeral: true });
                     break;
-                }
-
-                case "voldown": {
-                    const currentVol = player.volume || 100;
-                    const newVol = Math.max(currentVol - 10, 0);
-                    player.setVolume(newVol);
-                    await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor(client.config.colors.success)
-                                .setDescription(`🔉 Volumen: **${newVol}%**`)
-                        ],
-                        ephemeral: true
-                    });
-                    break;
-                }
-
-                case "queue": {
-                    const queue = player.queue;
-                    const current = queue.current;
-
-                    if (!current) {
-                        return interaction.reply({
-                            embeds: [
-                                new EmbedBuilder()
-                                    .setColor(client.config.colors.error)
-                                    .setDescription("❌ No hay música reproduciéndose.")
-                            ],
-                            ephemeral: true
-                        });
-                    }
-
-                    let description = `**Ahora:** [${current.title}](${current.uri})\n\n`;
-
-                    if (queue.length > 0) {
-                        const tracks = queue.slice(0, 10);
-                        description += "**Siguiente:**\n";
-                        description += tracks.map((track, i) => 
-                            `\`${i + 1}.\` [${track.title.substring(0, 40)}](${track.uri})`
-                        ).join("\n");
-
-                        if (queue.length > 10) {
-                            description += `\n\n*...y ${queue.length - 10} más*`;
-                        }
-                    } else {
-                        description += "*No hay más canciones en la cola*";
-                    }
-
-                    await interaction.reply({
-                        embeds: [
-                            new EmbedBuilder()
-                                .setColor(client.config.colors.music)
-                                .setTitle("📜 Cola de reproducción")
-                                .setDescription(description)
-                        ],
-                        ephemeral: true
-                    });
-                    break;
-                }
-
-                default:
-                    await interaction.reply({
-                        content: "Acción no reconocida.",
-                        ephemeral: true
-                    });
             }
         } catch (error) {
-            console.error("Error en botón de música:", error);
-            if (!interaction.replied) {
-                await interaction.reply({
-                    embeds: [
-                        new EmbedBuilder()
-                            .setColor(client.config.colors.error)
-                            .setDescription("❌ Ocurrió un error al ejecutar esta acción.")
-                    ],
-                    ephemeral: true
-                });
-            }
+            console.error(error);
+            if (!interaction.replied) interaction.reply({ content: "Error ejecutando acción", ephemeral: true });
         }
     }
 };

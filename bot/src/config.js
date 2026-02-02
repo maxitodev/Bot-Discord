@@ -3,10 +3,10 @@ module.exports = {
     token: process.env.DISCORD_TOKEN || "TU_TOKEN_AQUI",
     clientId: process.env.CLIENT_ID || "TU_CLIENT_ID_AQUI",
 
-    // Lavalink Configuration (Shoukaku format)
+    // Lavalink Configuration
     nodes: [
         {
-            name: "Serenetia Lavalink",
+            name: "Local Lavalink",
             url: "lavalinkv4.serenetia.com:443",
             auth: "https://dsc.gg/ajidevserver",
             secure: true
@@ -17,16 +17,16 @@ module.exports = {
     defaultVolume: 80,
     maxQueueSize: 500,
 
-    // Embed Colors
+    // Embed Colors - "Miko Style" (Dark Background blend, Red Accents)
     colors: {
-        main: 0x5865F2,      // Discord Blurple
-        success: 0x00FF7F,   // Spring Green
-        error: 0xFF2E2E,     // Vivid Red
-        warning: 0xFFD700,   // Gold
-        music: 0x00F7FF      // Neon Cyan
+        main: 0x000001,      // Almost Black (Looks like full black/transparent)
+        success: 0xFF0000,   // Red for success
+        error: 0x550000,     // Dark Red
+        warning: 0xFFA500,   // Orange
+        music: 0xFF0000      // Red
     },
 
-    // Emojis
+    // Emojis (Standard)
     emojis: {
         play: "▶️",
         pause: "⏸️",
@@ -43,6 +43,7 @@ module.exports = {
         loading: "⏳",
         success: "✅",
         error: "❌",
-        warning: "⚠️"
+        warning: "⚠️",
+        autoplay: "♾️"
     }
 };

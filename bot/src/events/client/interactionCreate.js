@@ -4,6 +4,20 @@ module.exports = {
     name: "interactionCreate",
     once: false,
     async execute(interaction, client) {
+        // Handle Autocomplete
+        if (interaction.isAutocomplete()) {
+            const command = client.commands.get(interaction.commandName);
+            if (!command) return;
+
+            try {
+                await command.autocomplete(interaction, client);
+            } catch (error) {
+                console.error("Error en autocomplete:", error);
+            }
+            return;
+        }
+
+        // Handle Chat Commands
         if (!interaction.isChatInputCommand()) return;
 
         const command = client.commands.get(interaction.commandName);

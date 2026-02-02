@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require("discord.js");
 const { formatDuration } = require("../../utils/formatDuration");
 
 module.exports = {
@@ -10,16 +10,46 @@ module.exports = {
                 .setName("cancion")
                 .setDescription("Nombre de la canción o URL")
                 .setRequired(true)
+                .setAutocomplete(true) // Activamos el autocompletado
         ),
+
+    async autocomplete(interaction, client) {
+        const focusedValue = interaction.options.getFocused();
+
+        // Si no han escrito nada o es muy corto, no buscamos para ahorrar recursos
+        if (!focusedValue || focusedValue.length < 3) {
+            return interaction.respond([]);
+        }
+
+        try {
+            // Buscamos sugerencias en YouTube
+            const result = await client.manager.search(focusedValue, { requester: interaction.user, engine: 'youtube' });
+
+            if (!result || !result.tracks || result.tracks.length === 0) {
+                return interaction.respond([]);
+            }
+
+            // Mapeamos los resultados para Discord (max 25 opciones)
+            const options = result.tracks.slice(0, 20).map(track => ({
+                name: `${track.title.substring(0, 90)} - ${track.author.substring(0, 10)}`, // Título (cortado) + Autor
+                value: track.uri // El valor que se enviará es la URL directa
+            }));
+
+            await interaction.respond(options);
+
+        } catch (error) {
+            console.error("Error en autocomplete:", error);
+            // En caso de error, respondemos vacío para no trabar la UI
+            await interaction.respond([]);
+        }
+    },
 
     async execute(interaction, client) {
         const query = interaction.options.getString("cancion");
         const { member, guild, channel } = interaction;
 
-        // Defer reply immediately to prevent timeout
         await interaction.deferReply();
 
-        // Check if user is in a voice channel
         if (!member.voice.channel) {
             return interaction.editReply({
                 embeds: [
@@ -30,7 +60,7 @@ module.exports = {
             });
         }
 
-        // Check bot permissions
+        // ... Permisos ...
         const permissions = member.voice.channel.permissionsFor(client.user);
         if (!permissions.has("Connect") || !permissions.has("Speak")) {
             return interaction.editReply({
@@ -43,12 +73,23 @@ module.exports = {
         }
 
         try {
-            // Determine if it's a URL or search query
+            // Como usamos Autocomplete, es muy probable que 'query' ya sea una URL directa (track.uri)
+            // Pero mantenemos la lógica de búsqueda por si el usuario ignora el autocomplete y escribe texto
             const isUrl = /^https?:\/\//.test(query);
-            const searchQuery = isUrl ? query : `ytsearch:${query}`;
+            let result;
 
-            // Search for the track
-            const result = await client.manager.search(searchQuery, { requester: member });
+            if (isUrl) {
+                result = await client.manager.search(query, { requester: member });
+            } else {
+                // Inteligencia de Búsqueda Múltiple (Fallback)
+                result = await client.manager.search(query, { requester: member, engine: 'youtube' });
+                if (!result || !result.tracks || !result.tracks.length) {
+                    result = await client.manager.search(query, { requester: member, engine: 'youtube_music' });
+                }
+                if (!result || !result.tracks || !result.tracks.length) {
+                    result = await client.manager.search(query, { requester: member, engine: 'soundcloud' });
+                }
+            }
 
             if (!result || !result.tracks || !result.tracks.length) {
                 return interaction.editReply({
@@ -60,9 +101,8 @@ module.exports = {
                 });
             }
 
-            // Create or get player
+            // Crear Player
             let player = client.manager.players.get(guild.id);
-
             if (!player) {
                 player = await client.manager.createPlayer({
                     guildId: guild.id,
@@ -73,81 +113,94 @@ module.exports = {
                 });
             }
 
-            // Handle playlist
+            // Si es Playlist
             if (result.type === "PLAYLIST") {
-                for (const track of result.tracks) {
-                    player.queue.add(track);
-                }
-
-                const totalDuration = result.tracks.reduce((acc, track) => acc + (track.length || 0), 0);
+                for (const track of result.tracks) player.queue.add(track);
 
                 const embed = new EmbedBuilder()
                     .setColor(client.config.colors.success)
-                    .setAuthor({ name: "Playlist añadida a la cola" })
-                    .setTitle(result.playlistName || "Playlist")
-                    .setDescription(`${client.config.emojis.queue} **${result.tracks.length}** canciones añadidas a la cola`)
-                    .addFields(
-                        {
-                            name: "⏱️ Duración total",
-                            value: formatDuration(totalDuration),
-                            inline: true
-                        },
-                        {
-                            name: "🎧 Solicitado por",
-                            value: `${member}`,
-                            inline: true
-                        }
-                    )
-                    .setTimestamp();
+                    .setDescription(`${client.config.emojis.queue} Playlist **${result.playlistName}** cargada (${result.tracks.length} canciones).`);
 
                 if (!player.playing && !player.paused) player.play();
-
                 return interaction.editReply({ embeds: [embed] });
             }
 
-            // Handle single track or search result
+            // Si es Single Track (Ya sea por URL directa del autocomplete o por búsqueda)
+            // Nota: Si viene del autocomplete, es una URL directa, así que entra aquí directo.
+            // Si el usuario escribió texto y no usó autocomplete, podríamos mostrar el menú select...
+            // PERO la experiencia de usuario moderna prefiere que si escribes texto y das enter, 
+            // se reproduzca el primer resultado, y si quieres elegir, uses el autocomplete.
+
+            // Para mantener la consistencia con lo que pediste antes ("como Miko"), 
+            // si NO es URL, mostramos el menú de selección.
+            // Si ES URL (lo que devuelve el autocomplete), reproducimos directo.
+
+            if (!isUrl && result.type !== "PLAYLIST") {
+                const tracks = result.tracks.slice(0, 10);
+
+                const options = tracks.map((track, i) => ({
+                    label: `${i + 1}. ${track.title.substring(0, 95)}`,
+                    description: `${track.author.substring(0, 50)} - ${formatDuration(track.length)}`,
+                    value: i.toString(),
+                    emoji: "🎵"
+                }));
+
+                const menu = new StringSelectMenuBuilder()
+                    .setCustomId('search_select')
+                    .setPlaceholder('👇 Selecciona una canción...')
+                    .addOptions(options);
+
+                const row = new ActionRowBuilder().addComponents(menu);
+
+                const selectMsg = await interaction.editReply({
+                    content: `🔍 **Resultados para:** \`${query}\``,
+                    components: [row],
+                    embeds: []
+                });
+
+                const collector = selectMsg.createMessageComponentCollector({
+                    componentType: ComponentType.StringSelect,
+                    time: 30000
+                });
+
+                collector.on('collect', async i => {
+                    if (i.user.id !== member.id) return i.reply({ content: "❌ No es tu búsqueda.", ephemeral: true });
+
+                    const track = tracks[parseInt(i.values[0])];
+                    player.queue.add(track);
+                    if (!player.playing && !player.paused) player.play();
+
+                    const embed = new EmbedBuilder()
+                        .setColor(client.config.colors.success)
+                        .setAuthor({ name: "Añadido a la cola" })
+                        .setTitle(track.title)
+                        .setURL(track.uri)
+                        .setThumbnail(track.thumbnail);
+
+                    await i.update({ content: null, embeds: [embed], components: [] });
+                });
+                return;
+            }
+
+            // Reproducción Directa (Autocomplete URL o Link pegado)
             const track = result.tracks[0];
             player.queue.add(track);
 
             const embed = new EmbedBuilder()
                 .setColor(client.config.colors.success)
-                .setAuthor({ name: player.playing ? "Añadido a la cola" : "Reproduciendo ahora" })
-                .setTitle(track.title)
-                .setURL(track.uri)
-                .setThumbnail(track.thumbnail || null)
-                .addFields(
-                    {
-                        name: "👤 Artista",
-                        value: track.author || "Desconocido",
-                        inline: true
-                    },
-                    {
-                        name: "⏱️ Duración",
-                        value: track.isStream ? "🔴 En vivo" : formatDuration(track.length),
-                        inline: true
-                    },
-                    {
-                        name: "📍 Posición",
-                        value: player.playing ? `#${player.queue.length}` : "Reproduciendo",
-                        inline: true
-                    }
-                )
-                .setFooter({ text: `Solicitado por ${member.user.tag}`, iconURL: member.user.displayAvatarURL() })
-                .setTimestamp();
+                .setDescription(`${client.config.emojis.success} Cargado: [${track.title}](${track.uri})`);
 
             if (!player.playing && !player.paused) player.play();
-
             return interaction.editReply({ embeds: [embed] });
 
         } catch (error) {
-            console.error("Error en comando play:", error);
-            return interaction.editReply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor(client.config.colors.error)
-                        .setDescription(`${client.config.emojis.error} Ha ocurrido un error al buscar la canción.`)
-                ]
-            });
+            console.error("Error en play:", error);
+            const errEmbed = new EmbedBuilder()
+                .setColor(client.config.colors.error)
+                .setDescription(`${client.config.emojis.error} Error al procesar la solicitud.`);
+
+            if (interaction.deferred) return interaction.editReply({ embeds: [errEmbed] });
+            return interaction.reply({ embeds: [errEmbed], ephemeral: true });
         }
     }
 };

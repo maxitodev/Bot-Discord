@@ -7,77 +7,61 @@ module.exports = {
         const channel = client.channels.cache.get(player.textId);
         if (!channel) return;
 
+        if (player.nowPlayingMessage) {
+            try { await player.nowPlayingMessage.delete(); } catch (e) { }
+        }
+
+        // --- MODERN MINIMALIST UI (DARK) ---
+
+        const duration = track.isStream ? "🔴 LIVE" : formatDuration(track.length);
+
+        // Visual Progress Bar using Blocks
+        // ⬛⬛⬛⬜⬜⬜⬜⬜⬜
+        const progress = '🔘▬▬▬▬▬▬▬▬▬▬▬▬▬▬';
+
         const embed = new EmbedBuilder()
-            .setColor(client.config.colors.music)
-            .setTitle(`🎶 ${track.title}`)
-            .setURL(track.uri)
-            .setThumbnail(track.thumbnail || null)
-            .addFields(
-                {
-                    name: "👤 Artista",
-                    value: `\`${track.author || "Desconocido"}\``,
-                    inline: true
-                },
-                {
-                    name: "⏱️ Duración",
-                    value: `\`${track.isStream ? "🔴 En vivo" : formatDuration(track.length)}\``,
-                    inline: true
-                },
-                {
-                    name: "🎧 Pedido por",
-                    value: track.requester ? `<@${track.requester.id}>` : "Sistema",
-                    inline: true
-                }
-            )
-            .setFooter({
-                text: `🔊 Vol: ${player.volume}% • Cola: ${player.queue.length} canciones`
-            })
-            .setTimestamp();
+            .setColor(client.config.colors.main) // Black/Dark
+            .setAuthor({ name: "Ahora Reproduciendo", iconURL: client.user.displayAvatarURL() })
+            .setDescription(`
+            ## [${track.title}](${track.uri})
+            
+            \`${progress}\` \`[ 0:00 / ${duration} ]\`
+            
+            👤 **Artista:** ${track.author}
+            👤 **Pedido por:** <@${track.requester.id}>
+            `)
+            .setImage(track.thumbnail || null)
+            .setFooter({ text: `Vol: ${player.volume}% • Loop: ${player.loop || 'Off'}` });
 
-        // Fila 1: Controles de Reproducción (Flujo Lógico)
-        const row1 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId("music_previous")
-                    .setEmoji("⏮️")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId("music_pause")
-                    .setEmoji("⏯️") // Play/Pause toggle emoji
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId("music_skip")
-                    .setEmoji("⏭️")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId("music_loop")
-                    .setEmoji("🔁")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
-                    .setCustomId("music_shuffle")
-                    .setEmoji("🔀")
-                    .setStyle(ButtonStyle.Secondary)
-            );
+        // --- BOTONES: Minimalismo "Dark Mode" ---
+        // Todos los botones en GRIS OSCURO (Secondary) para máximo contraste con los emojis de colores.
+        // Esto resuelve el problema de "Rojo sobre Rojo" y se ve mucho más limpio.
 
-        // Fila 2: Gestión y Stop
-        const row2 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId("music_stop")
-                    .setEmoji("⏹️")
-                    .setStyle(ButtonStyle.Danger),
-                new ButtonBuilder()
-                    .setCustomId("music_queue")
-                    .setLabel("Ver Cola")
-                    .setEmoji("📜")
-                    .setStyle(ButtonStyle.Primary)
-            );
+        const row1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("music_loop").setEmoji("🔁").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music_previous").setEmoji("⏮️").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music_pause").setEmoji("⏯️").setStyle(ButtonStyle.Secondary), // Gris con icono blanco
+            new ButtonBuilder().setCustomId("music_skip").setEmoji("⏭️").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music_shuffle").setEmoji("🔀").setStyle(ButtonStyle.Secondary)
+        );
+
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("music_voldown").setEmoji("🔉").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music_stop").setEmoji("⏹️").setStyle(ButtonStyle.Danger), // Stop en Rojo para emergencias
+            new ButtonBuilder().setCustomId("music_volup").setEmoji("🔊").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("music_save").setLabel("Guardar").setEmoji("❤️").setStyle(ButtonStyle.Secondary), // Gris con Corazón Rojo (¡Alto Contraste!)
+            new ButtonBuilder().setCustomId("music_queue").setEmoji("📜").setStyle(ButtonStyle.Secondary)
+        );
 
         try {
-            const message = await channel.send({ embeds: [embed], components: [row1, row2] });
+            const message = await channel.send({
+                content: `**💿 Reproduciendo en** <#${player.voiceId}>`,
+                embeds: [embed],
+                components: [row1, row2]
+            });
             player.nowPlayingMessage = message;
         } catch (error) {
-            console.error("Error al enviar mensaje de trackStart:", error);
+            console.error("Error UI:", error);
         }
     }
 };

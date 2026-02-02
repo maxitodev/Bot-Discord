@@ -11,10 +11,22 @@ module.exports = {
         console.log(`👥 Usuarios: ${client.users.cache.size}`);
         console.log(`${"═".repeat(50)}\n`);
 
-        // Set bot activity
-        client.user.setActivity("/play", { type: ActivityType.Listening });
+        // --- SISTEMA DE ESTADO ROTATIVO ---
+        const statuses = [
+            { name: "🔥 High Quality Music", type: ActivityType.Listening },
+            { name: "💻 Dev: MaxitoDev", type: ActivityType.Watching },
+            { name: "🚀 /play para empezar", type: ActivityType.Playing },
+            { name: "✨ Nueva UI Moderna", type: ActivityType.Playing }
+        ];
 
-        // Register slash commands
+        let index = 0;
+        setInterval(() => {
+            const status = statuses[index];
+            client.user.setActivity(status.name, { type: status.type });
+            index = (index + 1) % statuses.length;
+        }, 10000); // Cambia cada 10 segundos
+
+        // Register slash commands (Silent refresh)
         await registerCommands(client);
     }
 };
@@ -25,14 +37,11 @@ async function registerCommands(client) {
 
     try {
         console.log("🔄 Registrando comandos slash...");
-
-        // Register commands globally
         await rest.put(
             Routes.applicationCommands(client.config.clientId),
             { body: commands }
         );
-
-        console.log(`✅ ${commands.length} comandos slash registrados correctamente`);
+        console.log(`✅ ${commands.length} comandos slash registrados con éxito.`);
     } catch (error) {
         console.error("❌ Error al registrar comandos:", error);
     }
