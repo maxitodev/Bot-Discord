@@ -82,6 +82,7 @@ npm start
 | `/pause` | Pausa la reproducción |
 | `/resume` | Reanuda la reproducción |
 | `/skip` | Salta a la siguiente canción |
+| `/jump` | Salta a una canción de la cola |
 | `/stop` | Detiene la música y desconecta |
 | `/queue` | Muestra la cola de reproducción |
 | `/nowplaying` | Muestra la canción actual |
