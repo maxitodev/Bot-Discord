@@ -1,11 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
-    name: "playerEnd",
+    name: "playerEmpty",
     async execute(player, client) {
-        // Only send message if queue is empty
-        if (player.queue.length > 0) return;
-        
         const channel = client.channels.cache.get(player.textId);
         if (!channel) return;
 

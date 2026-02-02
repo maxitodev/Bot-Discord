@@ -2,12 +2,12 @@ module.exports = {
     // Bot Configuration
     token: process.env.DISCORD_TOKEN || "TU_TOKEN_AQUI",
     clientId: process.env.CLIENT_ID || "TU_CLIENT_ID_AQUI",
-    
+
     // Lavalink Configuration (Shoukaku format)
     nodes: [
         {
             name: "Main Node",
-            url: "127.0.0.1:2333",
+            url: "localhost:2333",
             auth: "tuPasswordSegura",
             secure: false
         }
@@ -16,14 +16,14 @@ module.exports = {
     // Bot Settings
     defaultVolume: 80,
     maxQueueSize: 500,
-    
+
     // Embed Colors
     colors: {
         main: 0x5865F2,      // Discord Blurple
-        success: 0x57F287,   // Green
-        error: 0xED4245,     // Red
-        warning: 0xFEE75C,   // Yellow
-        music: 0xEB459E      // Pink/Fuchsia
+        success: 0x00FF7F,   // Spring Green
+        error: 0xFF2E2E,     // Vivid Red
+        warning: 0xFFD700,   // Gold
+        music: 0x00F7FF      // Neon Cyan
     },
 
     // Emojis

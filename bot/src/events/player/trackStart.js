@@ -9,50 +9,42 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(client.config.colors.music)
-            .setAuthor({ 
-                name: "Reproduciendo ahora", 
-                iconURL: "https://cdn.discordapp.com/emojis/994954042486734968.gif"
-            })
-            .setTitle(track.title)
+            .setTitle(`🎶 ${track.title}`)
             .setURL(track.uri)
             .setThumbnail(track.thumbnail || null)
             .addFields(
-                { 
-                    name: "👤 Artista", 
-                    value: track.author || "Desconocido", 
-                    inline: true 
+                {
+                    name: "👤 Artista",
+                    value: `\`${track.author || "Desconocido"}\``,
+                    inline: true
                 },
-                { 
-                    name: "⏱️ Duración", 
-                    value: track.isStream ? "🔴 En vivo" : formatDuration(track.length), 
-                    inline: true 
+                {
+                    name: "⏱️ Duración",
+                    value: `\`${track.isStream ? "🔴 En vivo" : formatDuration(track.length)}\``,
+                    inline: true
                 },
-                { 
-                    name: "🎧 Solicitado por", 
-                    value: track.requester ? `<@${track.requester.id}>` : "Desconocido", 
-                    inline: true 
+                {
+                    name: "🎧 Pedido por",
+                    value: track.requester ? `<@${track.requester.id}>` : "Sistema",
+                    inline: true
                 }
             )
-            .setFooter({ 
-                text: `Cola: ${player.queue.length} canciones` 
+            .setFooter({
+                text: `🔊 Vol: ${player.volume}% • Cola: ${player.queue.length} canciones`
             })
             .setTimestamp();
 
-        // Botones de control
+        // Fila 1: Controles de Reproducción (Flujo Lógico)
         const row1 = new ActionRowBuilder()
             .addComponents(
-                new ButtonBuilder()
-                    .setCustomId("music_shuffle")
-                    .setEmoji("🔀")
-                    .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
                     .setCustomId("music_previous")
                     .setEmoji("⏮️")
                     .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
                     .setCustomId("music_pause")
-                    .setEmoji("⏸️")
-                    .setStyle(ButtonStyle.Primary),
+                    .setEmoji("⏯️") // Play/Pause toggle emoji
+                    .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId("music_skip")
                     .setEmoji("⏭️")
@@ -60,19 +52,25 @@ module.exports = {
                 new ButtonBuilder()
                     .setCustomId("music_loop")
                     .setEmoji("🔁")
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId("music_shuffle")
+                    .setEmoji("🔀")
                     .setStyle(ButtonStyle.Secondary)
             );
 
+        // Fila 2: Gestión y Stop
         const row2 = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId("music_queue")
-                    .setEmoji("📜")
-                    .setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder()
                     .setCustomId("music_stop")
                     .setEmoji("⏹️")
-                    .setStyle(ButtonStyle.Danger)
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId("music_queue")
+                    .setLabel("Ver Cola")
+                    .setEmoji("📜")
+                    .setStyle(ButtonStyle.Primary)
             );
 
         try {
