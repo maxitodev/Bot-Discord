@@ -6,10 +6,10 @@ module.exports = {
     // Lavalink Configuration (Shoukaku format)
     nodes: [
         {
-            name: "Main Node",
-            url: "127.0.0.1:2333",
-            auth: process.env.LAVALINK_PASSWORD || "tuPasswordSegura",
-            secure: false
+            name: "Serenetia Lavalink",
+            url: "lavalinkv4.serenetia.com:443",
+            auth: "https://dsc.gg/ajidevserver",
+            secure: true
         }
     ],
 
