@@ -1,0 +1,53 @@
+server:
+  port: 2333
+  address: 0.0.0.0
+  undertow:
+    threads:
+      io: 4
+      worker: 32
+
+httpConfig:
+  proxyHost: ""
+  proxyPort: 0
+  proxyUser: ""
+  proxyPassword: ""
+
+lavalink:
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.17.0"
+  server:
+    password: "youshallnotpass"
+    bufferDurationMs: 10000
+    frameBufferDurationMs: 30000
+    opusEncodingQuality: 10
+    resamplingQuality: HIGH
+    trackStuckThresholdMs: 30000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+    gc-warnings: true
+    sources:
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    clients:
+      - MUSIC
+      - WEB
+      - MWEB
+    oauth:
+      enabled: false
+      # Para habilitar OAuth, cambia enabled a true y agrega tu refreshToken
+      # refreshToken: "tu_refresh_token_aqui"
+      skipInitialization: false
