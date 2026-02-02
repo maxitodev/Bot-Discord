@@ -16,8 +16,8 @@ module.exports = {
     async autocomplete(interaction, client) {
         const focusedValue = interaction.options.getFocused();
 
-        // Si no han escrito nada o es muy corto, no buscamos para ahorrar recursos
-        if (!focusedValue || focusedValue.length < 3) {
+        // Si no han escrito nada, no buscamos
+        if (!focusedValue) {
             return interaction.respond([]);
         }
 
@@ -30,10 +30,21 @@ module.exports = {
             }
 
             // Mapeamos los resultados para Discord (max 25 opciones)
-            const options = result.tracks.slice(0, 20).map(track => ({
-                name: `${track.title.substring(0, 90)} - ${track.author.substring(0, 10)}`, // Título (cortado) + Autor
-                value: track.uri // El valor que se enviará es la URL directa
-            }));
+            const options = result.tracks.slice(0, 20).map(track => {
+                const title = track.title || "Desconocido";
+                const author = track.author || "Desconocido";
+
+                // Discord API limit: 100 characters for name
+                let name = `${title} - ${author}`;
+                if (name.length > 100) {
+                    name = name.substring(0, 97) + "...";
+                }
+
+                return {
+                    name: name,
+                    value: track.uri
+                };
+            });
 
             await interaction.respond(options);
 
