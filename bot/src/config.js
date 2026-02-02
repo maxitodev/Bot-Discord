@@ -7,8 +7,8 @@ module.exports = {
     nodes: [
         {
             name: "Main Node",
-            url: "localhost:2333",
-            auth: "tuPasswordSegura",
+            url: "127.0.0.1:2333",
+            auth: process.env.LAVALINK_PASSWORD || "tuPasswordSegura",
             secure: false
         }
     ],
