@@ -13,10 +13,8 @@ module.exports = {
 
         // --- SISTEMA DE ESTADO ROTATIVO ---
         const statuses = [
-            { name: "🔥 High Quality Music", type: ActivityType.Listening },
             { name: "💻 Dev: MaxitoDev", type: ActivityType.Watching },
-            { name: "🚀 /play para empezar", type: ActivityType.Playing },
-            { name: "✨ Nueva UI Moderna", type: ActivityType.Playing }
+            { name: "🚀 /play para empezar", type: ActivityType.Playing }
         ];
 
         let index = 0;
