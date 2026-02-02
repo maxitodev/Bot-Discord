@@ -9,6 +9,7 @@ package-lock.json
 
 # Lavalink
 Lavalink.jar
+application.yml
 plugins/
 logs/
 *.log
