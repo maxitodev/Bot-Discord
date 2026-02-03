@@ -4,6 +4,7 @@ const { Connectors } = require("shoukaku");
 const config = require("../config");
 const fs = require("fs");
 const path = require("path");
+const AutoMemeSystem = require("../utils/AutoMemeSystem");
 
 class MusicBot extends Client {
     constructor() {
@@ -19,7 +20,11 @@ class MusicBot extends Client {
 
         this.commands = new Collection();
         this.config = config;
-        
+
+        // Initialize Auto-Meme System
+        this.autoMemeConfig = new Map();
+        this.autoMemeSystem = new AutoMemeSystem(this);
+
         // Initialize Kazagumo Manager with Shoukaku
         this.manager = new Kazagumo({
             defaultSearchEngine: "youtube",
@@ -45,7 +50,7 @@ class MusicBot extends Client {
             for (const file of commandFiles) {
                 const filePath = path.join(folderPath, file);
                 const command = require(filePath);
-                
+
                 if ("data" in command && "execute" in command) {
                     this.commands.set(command.data.name, command);
                     console.log(`✅ Comando cargado: ${command.data.name}`);
@@ -63,7 +68,7 @@ class MusicBot extends Client {
         for (const file of eventFiles) {
             const filePath = path.join(eventsPath, file);
             const event = require(filePath);
-            
+
             if (event.once) {
                 this.once(event.name, (...args) => event.execute(...args, this));
             } else {
@@ -80,12 +85,12 @@ class MusicBot extends Client {
         for (const file of eventFiles) {
             const filePath = path.join(eventsPath, file);
             const event = require(filePath);
-            
+
             // Kazagumo uses shoukaku for node events
             if (event.name.startsWith("node")) {
-                const shoukakuEvent = event.name === "nodeConnect" ? "ready" : 
-                                      event.name === "nodeError" ? "error" : 
-                                      event.name.replace("node", "").toLowerCase();
+                const shoukakuEvent = event.name === "nodeConnect" ? "ready" :
+                    event.name === "nodeError" ? "error" :
+                        event.name.replace("node", "").toLowerCase();
                 this.manager.shoukaku.on(shoukakuEvent, (...args) => event.execute(...args, this));
             } else {
                 this.manager.on(event.name, (...args) => event.execute(...args, this));
@@ -100,6 +105,19 @@ class MusicBot extends Client {
         } catch (error) {
             console.error("❌ Error al iniciar el bot:", error);
             process.exit(1);
+        }
+    }
+
+    // Auto-Meme System Methods
+    startAutoMeme(guildId) {
+        if (this.autoMemeSystem) {
+            this.autoMemeSystem.start(guildId);
+        }
+    }
+
+    stopAutoMeme(guildId) {
+        if (this.autoMemeSystem) {
+            this.autoMemeSystem.stop(guildId);
         }
     }
 }

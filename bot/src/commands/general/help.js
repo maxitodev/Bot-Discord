@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -23,6 +23,18 @@ module.exports = {
             { name: "/clear", description: "Limpia toda la cola" }
         ];
 
+        const memeCommands = [
+            { name: "/meme", description: "Obtiene un meme aleatorio de Reddit" },
+            { name: "/automeme setup", description: "Configura publicación automática de memes" },
+            { name: "/automeme stop", description: "Detiene la publicación automática" },
+            { name: "/automeme status", description: "Muestra el estado de auto-memes" }
+        ];
+
+        const generalCommands = [
+            { name: "/help", description: "Muestra este mensaje de ayuda" },
+            { name: "/ping", description: "Muestra la latencia del bot" }
+        ];
+
         const embed = new EmbedBuilder()
             .setColor(client.config.colors.main)
             .setAuthor({
@@ -30,7 +42,7 @@ module.exports = {
                 iconURL: client.user.displayAvatarURL()
             })
             .setDescription(
-                `¡Hola! Soy un bot creado por MaxitoDev para reproducir música de alta calidad y mucho más.\n\n` +
+                `¡Hola! Soy un bot creado por MaxitoDev para reproducir música de alta calidad y entretenimiento.\n\n` +
                 `**Prefijo:** Comandos Slash (/)\n` +
                 `**Servidores:** ${client.guilds.cache.size}\n` +
                 `**Comandos:** ${client.commands.size}`
@@ -38,7 +50,18 @@ module.exports = {
             .addFields(
                 {
                     name: "🎵 Comandos de Música",
-                    value: musicCommands.map(cmd => `\`${cmd.name}\` - ${cmd.description}`).join("\n")
+                    value: musicCommands.map(cmd => `\`${cmd.name}\` - ${cmd.description}`).join("\n"),
+                    inline: false
+                },
+                {
+                    name: "🎭 Comandos de Memes",
+                    value: memeCommands.map(cmd => `\`${cmd.name}\` - ${cmd.description}`).join("\n"),
+                    inline: false
+                },
+                {
+                    name: "⚙️ Comandos Generales",
+                    value: generalCommands.map(cmd => `\`${cmd.name}\` - ${cmd.description}`).join("\n"),
+                    inline: false
                 }
             )
             .setThumbnail(client.user.displayAvatarURL({ size: 256 }))

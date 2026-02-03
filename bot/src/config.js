@@ -17,6 +17,25 @@ module.exports = {
     defaultVolume: 80,
     maxQueueSize: 500,
 
+    // Audio Quality Settings (Optimizado para reducir lag)
+    audioSettings: {
+        // Buffer settings - Aumentar para conexiones inestables
+        bufferDuration: 400,        // Duración del buffer en ms (default: 400)
+        frameBufferDuration: 5000,  // Buffer de frames (5 segundos)
+
+        // Calidad de audio
+        opusQuality: 10,            // Calidad Opus (0-10, 10 = mejor)
+        resamplingQuality: "HIGH",  // HIGH, MEDIUM, LOW
+
+        // Configuración de reproducción
+        trackStuckThreshold: 10000, // Tiempo antes de considerar track atascado (10s)
+        playerUpdateInterval: 5,    // Intervalo de actualización del player (5s)
+
+        // Optimizaciones
+        useSeekGhosting: true,      // Mejora el seeking
+        gcWarnings: false           // Desactivar warnings de garbage collector
+    },
+
     // Embed Colors - "Miko Style" (Dark Background blend, Red Accents)
     colors: {
         main: 0x000001,      // Almost Black (Looks like full black/transparent)

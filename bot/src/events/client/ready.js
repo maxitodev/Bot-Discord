@@ -24,6 +24,11 @@ module.exports = {
             index = (index + 1) % statuses.length;
         }, 10000); // Cambia cada 10 segundos
 
+        // Initialize Auto-Meme System
+        if (client.autoMemeSystem) {
+            client.autoMemeSystem.initializeAll();
+        }
+
         // Register slash commands (Silent refresh)
         await registerCommands(client);
     }

@@ -8,6 +8,7 @@ Un bot de música profesional para Discord con soporte para YouTube, Spotify, So
 
 ## ✨ Características
 
+### 🎵 Sistema de Música
 - 🎶 Reproduce música de YouTube, SoundCloud, Bandcamp, Twitch y más
 - 🔊 Controles interactivos con botones
 - 📜 Sistema de cola de reproducción
@@ -17,6 +18,14 @@ Un bot de música profesional para Discord con soporte para YouTube, Spotify, So
 - ⏭️ Saltar, pausar, reanudar
 - 🔍 Búsqueda de canciones
 - 💾 Alto rendimiento con Lavalink
+
+### 🎭 Sistema de Memes
+- 🤖 Publicación automática de memes de Reddit
+- 🎯 Múltiples categorías (Gaming, Tech, Animales, Español, etc.)
+- ⏱️ Intervalos configurables (30 min - 24 horas)
+- 🛡️ Filtro NSFW automático
+- 🔄 Prevención de duplicados
+- 📊 Configuración por servidor
 
 ## 📋 Requisitos
 
@@ -76,6 +85,8 @@ npm start
 
 ## 🎮 Comandos
 
+### 🎵 Comandos de Música
+
 | Comando | Descripción |
 |---------|-------------|
 | `/play <canción>` | Reproduce una canción o URL |
@@ -92,6 +103,20 @@ npm start
 | `/seek <tiempo>` | Salta a un tiempo específico |
 | `/remove <posición>` | Elimina una canción de la cola |
 | `/clear` | Limpia toda la cola |
+
+### 🎭 Comandos de Memes
+
+| Comando | Descripción |
+|---------|-------------|
+| `/meme [categoria]` | Obtiene un meme aleatorio de Reddit |
+| `/automeme setup` | Configura la publicación automática de memes |
+| `/automeme stop` | Detiene la publicación automática |
+| `/automeme status` | Muestra el estado de la configuración |
+
+### ⚙️ Comandos Generales
+
+| Comando | Descripción |
+|---------|-------------|
 | `/help` | Muestra todos los comandos |
 | `/ping` | Muestra la latencia del bot |
 
@@ -120,12 +145,15 @@ discord-music-bot/
 │   │   ├── commands/
 │   │   │   ├── general/
 │   │   │   │   ├── help.js
-│   │   │   │   └── ping.js
+│   │   │   │   ├── ping.js
+│   │   │   │   ├── meme.js
+│   │   │   │   └── automeme.js
 │   │   │   └── music/
 │   │   │       ├── play.js
 │   │   │       ├── pause.js
 │   │   │       ├── resume.js
 │   │   │       ├── skip.js
+│   │   │       ├── jump.js
 │   │   │       ├── stop.js
 │   │   │       ├── queue.js
 │   │   │       ├── nowplaying.js
@@ -141,7 +169,8 @@ discord-music-bot/
 │   │   ├── structures/
 │   │   │   └── Client.js
 │   │   ├── utils/
-│   │   │   └── formatDuration.js
+│   │   │   ├── formatDuration.js
+│   │   │   └── AutoMemeSystem.js
 │   │   ├── config.js
 │   │   └── index.js
 │   ├── package.json
@@ -149,6 +178,7 @@ discord-music-bot/
 ├── plugins/
 ├── application.yml
 ├── Lavalink.jar
+├── AUTOMEME_README.md
 └── README.md
 ```
 
