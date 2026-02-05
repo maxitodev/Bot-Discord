@@ -143,13 +143,20 @@ class MinecraftMonitor {
      */
     detectEvent(line, guildId) {
         // Jugador se conectó
-        const joinMatch = line.match(/\]: (\w+) joined the game/);
+        const joinMatch = line.match(/\]: (\S+) joined the game/);
         if (joinMatch) {
             const player = joinMatch[1];
-            if (this.onlinePlayers.has(guildId)) {
-                this.onlinePlayers.get(guildId).add(player);
-                this.updateBotActivity();
+
+            // Asegurar que el Set existe
+            if (!this.onlinePlayers.has(guildId)) {
+                this.onlinePlayers.set(guildId, new Set());
             }
+
+            this.onlinePlayers.get(guildId).add(player);
+            console.log(`➕ Jugador agregado: ${player} (Total guild: ${this.onlinePlayers.get(guildId).size})`);
+
+            this.updateBotActivity();
+
             return {
                 type: 'join',
                 player: player,
@@ -158,13 +165,16 @@ class MinecraftMonitor {
         }
 
         // Jugador se desconectó
-        const leaveMatch = line.match(/\]: (\w+) left the game/);
+        const leaveMatch = line.match(/\]: (\S+) left the game/);
         if (leaveMatch) {
             const player = leaveMatch[1];
+
             if (this.onlinePlayers.has(guildId)) {
                 this.onlinePlayers.get(guildId).delete(player);
+                console.log(`➖ Jugador removido: ${player} (Total guild: ${this.onlinePlayers.get(guildId).size})`);
                 this.updateBotActivity();
             }
+
             return {
                 type: 'leave',
                 player: player,
