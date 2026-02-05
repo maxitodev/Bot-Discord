@@ -35,8 +35,8 @@ module.exports = {
 
         const funConfigs = [
             { name: "/automeme setup", description: "Configura la publicación automática de memes" },
-            { name: "/automeme stop", description: "Detiene la publicación automática" },
-            { name: "/automeme status", description: "Estado/Configuración actual de memes" }
+            { name: "/news subscribe", description: "Suscribe un canal a noticias (México, IA, Tech)" },
+            { name: "/news unsubscribe", description: "Cancela las noticias" }
         ];
 
         const embed = new EmbedBuilder()

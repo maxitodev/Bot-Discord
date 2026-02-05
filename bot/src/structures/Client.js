@@ -44,6 +44,12 @@ class MusicBot extends Client {
         this.autoCleanSystem = new AutoCleanSystem(this);
         this.autoCleanSystem.start();
 
+        // Initialize News System
+        this.newsSubscriptions = this.configManager.load('news_subs');
+        const NewsSystem = require("../utils/NewsSystem");
+        this.newsSystem = new NewsSystem(this);
+        this.newsSystem.start();
+
         // Initialize Kazagumo Manager with Shoukaku
         this.manager = new Kazagumo({
             defaultSearchEngine: "youtube",

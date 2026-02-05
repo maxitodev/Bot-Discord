@@ -19,6 +19,7 @@
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.3",
     "kazagumo": "^3.4.0",
+    "rss-parser": "^3.13.0",
     "shoukaku": "^4.2.0",
     "tail": "^2.2.6"
   }
