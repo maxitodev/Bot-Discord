@@ -122,6 +122,8 @@ module.exports = {
                     deaf: true,
                     volume: client.config.defaultVolume
                 });
+                // Activar autoplay por defecto
+                player.autoplay = true;
             }
 
             // Si es Playlist

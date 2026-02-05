@@ -18,6 +18,7 @@ module.exports = {
             { name: "/volume", description: "Ajusta el volumen" },
             { name: "/loop", description: "Configura el modo de repetición" },
             { name: "/shuffle", description: "Mezcla la cola aleatoriamente" },
+            { name: "/autoplay", description: "Activa/desactiva autoplay (ON por defecto)" },
             { name: "/seek", description: "Salta a un punto de la canción" },
             { name: "/remove", description: "Elimina una canción de la cola" },
             { name: "/clear", description: "Limpia toda la cola" }
