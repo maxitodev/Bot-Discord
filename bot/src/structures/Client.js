@@ -5,6 +5,7 @@ const config = require("../config");
 const fs = require("fs");
 const path = require("path");
 const AutoMemeSystem = require("../utils/AutoMemeSystem");
+const ConfigManager = require("../utils/ConfigManager");
 
 class MusicBot extends Client {
     constructor() {
@@ -21,9 +22,27 @@ class MusicBot extends Client {
         this.commands = new Collection();
         this.config = config;
 
-        // Initialize Auto-Meme System
-        this.autoMemeConfig = new Map();
+        // Initialize Config Manager
+        this.configManager = new ConfigManager();
+
+        // Initialize Auto-Meme System with saved config
+        this.autoMemeConfig = this.configManager.load('automeme');
         this.autoMemeSystem = new AutoMemeSystem(this);
+
+        // Initialize Minecraft Monitor config and system
+        this.minecraftConfig = this.configManager.load('minecraft');
+        const MinecraftMonitor = require("../utils/MinecraftMonitor");
+        this.minecraftMonitor = new MinecraftMonitor(this);
+
+        // Initialize GTA V Radar config
+        this.gtaConfig = this.configManager.load('gta');
+        this.gtaSessions = new Map(); // Para trackear tiempo de juego: userId -> startTime
+
+        // Initialize AutoClean System
+        this.autoCleanConfig = this.configManager.load('autoclean');
+        const AutoCleanSystem = require("../utils/AutoCleanSystem");
+        this.autoCleanSystem = new AutoCleanSystem(this);
+        this.autoCleanSystem.start();
 
         // Initialize Kazagumo Manager with Shoukaku
         this.manager = new Kazagumo({
@@ -118,6 +137,31 @@ class MusicBot extends Client {
     stopAutoMeme(guildId) {
         if (this.autoMemeSystem) {
             this.autoMemeSystem.stop(guildId);
+        }
+    }
+
+    // Configuration Persistence Methods
+    saveAutoMemeConfig() {
+        if (this.configManager && this.autoMemeConfig) {
+            this.configManager.save('automeme', this.autoMemeConfig);
+        }
+    }
+
+    saveMinecraftConfig() {
+        if (this.configManager && this.minecraftConfig) {
+            this.configManager.save('minecraft', this.minecraftConfig);
+        }
+    }
+
+    saveGtaConfig() {
+        if (this.configManager && this.gtaConfig) {
+            this.configManager.save('gta', this.gtaConfig);
+        }
+    }
+
+    saveAutoCleanConfig() {
+        if (this.configManager && this.autoCleanConfig) {
+            this.configManager.save('autoclean', this.autoCleanConfig);
         }
     }
 }

@@ -6,29 +6,28 @@ module.exports = {
         .setDescription("📚 Muestra la lista de comandos disponibles"),
 
     async execute(interaction, client) {
+        // Safe color access
+        const color = (client.config && client.config.colors && client.config.colors.main)
+            ? client.config.colors.main
+            : 0x0099ff;
+
         const musicCommands = [
             { name: "/play", description: "Reproduce una canción o playlist" },
             { name: "/stop", description: "Detiene la música y limpia la cola" },
-            { name: "/skip", description: "Salta a la siguiente canción" },
-            { name: "/jump", description: "Salta a una canción específica de la cola" },
-            { name: "/pause", description: "Pausa la reproducción" },
-            { name: "/resume", description: "Reanuda la reproducción" },
+            { name: "/skip", description: "Salta la canción actual" },
+            { name: "/skipto", description: "Salta a una canción específica en la cola" },
+            { name: "/pause", description: "Pausa/Reanuda la reproducción" },
             { name: "/queue", description: "Muestra la cola de reproducción" },
-            { name: "/nowplaying", description: "Muestra la canción actual" },
-            { name: "/volume", description: "Ajusta el volumen" },
-            { name: "/loop", description: "Configura el modo de repetición" },
+            { name: "/volume", description: "Ajusta el volumen (0-150)" },
+            { name: "/lyrics", description: "Muestra la letra de la canción" },
             { name: "/shuffle", description: "Mezcla la cola aleatoriamente" },
-            { name: "/autoplay", description: "Activa/desactiva autoplay (ON por defecto)" },
-            { name: "/seek", description: "Salta a un punto de la canción" },
-            { name: "/remove", description: "Elimina una canción de la cola" },
-            { name: "/clear", description: "Limpia toda la cola" }
+            { name: "/loop", description: "Cambia el modo de repetición" },
+            { name: "/nowplaying", description: "Muestra la canción actual" },
+            { name: "/autoplay", description: "Activa/Desactiva la reproducción automática" }
         ];
 
         const memeCommands = [
-            { name: "/meme", description: "Obtiene un meme aleatorio de Reddit" },
-            { name: "/automeme setup", description: "Configura publicación automática de memes" },
-            { name: "/automeme stop", description: "Detiene la publicación automática" },
-            { name: "/automeme status", description: "Muestra el estado de auto-memes" }
+            { name: "/meme", description: "Obtiene un meme aleatorio de Reddit" }
         ];
 
         const generalCommands = [
@@ -37,32 +36,21 @@ module.exports = {
         ];
 
         const embed = new EmbedBuilder()
-            .setColor(client.config.colors.main)
-            .setAuthor({
-                name: `${client.user.username} - Centro de Ayuda`,
-                iconURL: client.user.displayAvatarURL()
-            })
-            .setDescription(
-                `¡Hola! Soy un bot creado por MaxitoDev para reproducir música de alta calidad y entretenimiento.\n\n` +
-                `**Prefijo:** Comandos Slash (/)\n` +
-                `**Servidores:** ${client.guilds.cache.size}\n` +
-                `**Comandos:** ${client.commands.size}`
-            )
+            .setColor(color)
+            .setTitle("🎵 Comandos del Bot")
+            .setDescription("Aquí tienes la lista de comandos disponibles para todos los usuarios.")
             .addFields(
                 {
-                    name: "🎵 Comandos de Música",
-                    value: musicCommands.map(cmd => `\`${cmd.name}\` - ${cmd.description}`).join("\n"),
-                    inline: false
+                    name: "🎶 Música",
+                    value: musicCommands.map(cmd => `**${cmd.name}** - ${cmd.description}`).join("\n")
                 },
                 {
-                    name: "🎭 Comandos de Memes",
-                    value: memeCommands.map(cmd => `\`${cmd.name}\` - ${cmd.description}`).join("\n"),
-                    inline: false
+                    name: "😂 Diversión",
+                    value: memeCommands.map(cmd => `**${cmd.name}** - ${cmd.description}`).join("\n")
                 },
                 {
-                    name: "⚙️ Comandos Generales",
-                    value: generalCommands.map(cmd => `\`${cmd.name}\` - ${cmd.description}`).join("\n"),
-                    inline: false
+                    name: "ℹ️ General",
+                    value: generalCommands.map(cmd => `**${cmd.name}** - ${cmd.description}`).join("\n")
                 }
             )
             .setThumbnail(client.user.displayAvatarURL({ size: 256 }))

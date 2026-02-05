@@ -1,0 +1,28 @@
+[13:25:30] [Server thread/INFO]: Starting minecraft server version 1.20.4
+[13:25:30] [Server thread/INFO]: Loading properties
+[13:25:30] [Server thread/INFO]: Default game type: SURVIVAL
+[13:25:31] [Server thread/INFO]: Generating keypair
+[13:25:31] [Server thread/INFO]: Starting Minecraft server on *:25565
+[13:25:31] [Server thread/INFO]: Preparing level "world"
+[13:25:32] [Server thread/INFO]: Preparing start region for dimension minecraft:overworld
+[13:25:33] [Server thread/INFO]: Time elapsed: 1234 ms
+[13:25:33] [Server thread/INFO]: Done (2.5s)! For help, type "help"
+[13:26:15] [User Authenticator #1/INFO]: UUID of player MaxitoDev is 12345678-1234-1234-1234-123456789abc
+[13:26:15] [Server thread/INFO]: MaxitoDev joined the game
+[13:26:15] [Server thread/INFO]: MaxitoDev[/127.0.0.1:54321] logged in with entity id 123 at (0.5, 64.0, 0.5)
+[13:27:45] [Server thread/INFO]: MaxitoDev has made the advancement [Stone Age]
+[13:28:30] [Server thread/INFO]: MaxitoDev was slain by Zombie
+[13:29:15] [Server thread/INFO]: MaxitoDev has made the advancement [Getting an Upgrade]
+[13:30:00] [Server thread/INFO]: MaxitoDev has completed the challenge [Hot Stuff]
+[13:30:45] [Server thread/INFO]: MaxitoDev has reached the goal [Acquire Hardware]
+[13:31:20] [Server thread/INFO]: MaxitoDev fell from a high place
+[13:32:00] [Server thread/INFO]: TestPlayer joined the game
+[13:32:30] [Server thread/INFO]: MaxitoDev was shot by Skeleton
+[13:33:00] [Server thread/INFO]: TestPlayer left the game
+[13:33:30] [Server thread/INFO]: MaxitoDev tried to swim in lava
+[13:34:00] [Server thread/INFO]: MaxitoDev has made the advancement [Diamonds!]
+[13:34:30] [Server thread/INFO]: MaxitoDev was blown up by Creeper
+[13:35:00] [Server thread/INFO]: MaxitoDev left the game
+[13:35:01] [Server thread/INFO]: Stopping the server
+[13:35:01] [Server thread/INFO]: Stopping server
+[13:35:01] [Server thread/INFO]: Saving worlds

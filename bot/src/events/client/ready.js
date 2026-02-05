@@ -19,6 +19,18 @@ module.exports = {
 
         let index = 0;
         setInterval(() => {
+            // Verificar si hay jugadores de Minecraft online
+            let mcPlayers = 0;
+            if (client.minecraftMonitor && client.minecraftMonitor.onlinePlayers) {
+                for (const players of client.minecraftMonitor.onlinePlayers.values()) {
+                    mcPlayers += players.size;
+                }
+            }
+
+            // Si hay jugadores, el MinecraftMonitor maneja el estado
+            if (mcPlayers > 0) return;
+
+            // Si no hay jugadores, rotar estados normales
             const status = statuses[index];
             client.user.setActivity(status.name, { type: status.type });
             index = (index + 1) % statuses.length;
@@ -27,6 +39,15 @@ module.exports = {
         // Initialize Auto-Meme System
         if (client.autoMemeSystem) {
             client.autoMemeSystem.initializeAll();
+        }
+
+        // Initialize Minecraft Monitor
+        if (client.minecraftMonitor) {
+            const MinecraftMonitor = require('../../utils/MinecraftMonitor');
+            if (!client.minecraftMonitor) {
+                client.minecraftMonitor = new MinecraftMonitor(client);
+            }
+            client.minecraftMonitor.initializeAll();
         }
 
         // Register slash commands (Silent refresh)

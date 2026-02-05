@@ -90,6 +90,9 @@ module.exports = {
                     client.startAutoMeme(interaction.guildId);
                 }
 
+                // Guardar configuración
+                client.saveAutoMemeConfig();
+
                 const embed = new EmbedBuilder()
                     .setColor(color)
                     .setTitle("✅ Auto-Memes Configurado")
@@ -118,6 +121,9 @@ module.exports = {
                 }
 
                 client.autoMemeConfig.delete(interaction.guildId);
+
+                // Guardar configuración
+                client.saveAutoMemeConfig();
 
                 const embed = new EmbedBuilder()
                     .setColor(color)
