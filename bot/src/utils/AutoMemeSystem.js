@@ -113,7 +113,7 @@ class AutoMemeSystem {
     }
 
     /**
-     * Obtiene un meme aleatorio de Reddit
+     * Obtiene un meme aleatorio usando meme-api.com
      * @param {string} category - Categoría del meme
      * @param {string} guildId - ID del servidor (para evitar duplicados)
      * @returns {Promise<Object|null>}
@@ -132,68 +132,75 @@ class AutoMemeSystem {
         const selectedSubreddit = subredditList[Math.floor(Math.random() * subredditList.length)];
 
         try {
-            const response = await fetch(`https://www.reddit.com/r/${selectedSubreddit}/hot.json?limit=100`, {
-                headers: {
-                    'User-Agent': 'Discord-Meme-Bot/1.0'
-                }
-            });
+            // Usar meme-api.com
+            const url = `https://meme-api.com/gimme/${selectedSubreddit}`;
+            const response = await fetch(url);
 
             if (!response.ok) {
-                throw new Error(`Reddit API error: ${response.status}`);
+                throw new Error(`Meme API error: ${response.status}`);
             }
 
             const data = await response.json();
 
-            if (!data.data || !data.data.children || data.data.children.length === 0) {
+            if (!data || !data.url) {
                 return null;
             }
 
-            // Filtrar solo posts con imágenes
-            const imagePosts = data.data.children.filter(post => {
-                const postData = post.data;
-                return (
-                    !postData.is_video &&
-                    !postData.stickied &&
-                    postData.post_hint === "image" &&
-                    (postData.url.endsWith('.jpg') ||
-                        postData.url.endsWith('.png') ||
-                        postData.url.endsWith('.gif') ||
-                        postData.url.includes('i.redd.it') ||
-                        postData.url.includes('i.imgur.com'))
-                );
-            });
-
-            if (imagePosts.length === 0) {
-                return null;
-            }
+            const meme = {
+                title: data.title || 'Meme Random',
+                url: data.url,
+                ups: data.ups || 0,
+                nsfw: data.nsfw || false,
+                subreddit: data.subreddit || selectedSubreddit,
+                postLink: data.postLink || 'https://reddit.com',
+                author: data.author || 'unknown'
+            };
 
             // Evitar duplicados recientes
             const guildLastMemes = this.lastMemes.get(guildId) || [];
-            const availablePosts = imagePosts.filter(post =>
-                !guildLastMemes.includes(post.data.id)
-            );
 
-            const postsToChooseFrom = availablePosts.length > 0 ? availablePosts : imagePosts;
-            const randomPost = postsToChooseFrom[Math.floor(Math.random() * postsToChooseFrom.length)].data;
+            // Si este meme ya se publicó recientemente, intentar obtener otro
+            if (guildLastMemes.includes(meme.url)) {
+                // Intentar una vez más con otro subreddit de la categoría
+                const retrySubreddit = subredditList[Math.floor(Math.random() * subredditList.length)];
+                const retryUrl = `https://meme-api.com/gimme/${retrySubreddit}`;
+                const retryResponse = await fetch(retryUrl);
+
+                if (retryResponse.ok) {
+                    const retryData = await retryResponse.json();
+                    if (retryData && retryData.url && !guildLastMemes.includes(retryData.url)) {
+                        const retryMeme = {
+                            title: retryData.title || 'Meme Random',
+                            url: retryData.url,
+                            ups: retryData.ups || 0,
+                            nsfw: retryData.nsfw || false,
+                            subreddit: retryData.subreddit || retrySubreddit,
+                            postLink: retryData.postLink || 'https://reddit.com',
+                            author: retryData.author || 'unknown'
+                        };
+
+                        // Actualizar historial
+                        guildLastMemes.push(retryMeme.url);
+                        if (guildLastMemes.length > 50) {
+                            guildLastMemes.shift();
+                        }
+                        this.lastMemes.set(guildId, guildLastMemes);
+                        return retryMeme;
+                    }
+                }
+            }
 
             // Actualizar historial de memes (mantener últimos 50)
-            guildLastMemes.push(randomPost.id);
+            guildLastMemes.push(meme.url);
             if (guildLastMemes.length > 50) {
                 guildLastMemes.shift();
             }
             this.lastMemes.set(guildId, guildLastMemes);
 
-            return {
-                title: randomPost.title,
-                url: randomPost.url,
-                ups: randomPost.ups,
-                nsfw: randomPost.over_18,
-                subreddit: randomPost.subreddit,
-                postLink: `https://reddit.com${randomPost.permalink}`
-            };
+            return meme;
 
         } catch (error) {
-            console.error("Error fetching meme from Reddit:", error);
+            console.error("Error fetching meme from meme-api.com:", error);
             return null;
         }
     }
