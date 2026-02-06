@@ -10,7 +10,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(client.config.colors.error)
-            .setDescription(`${client.config.emojis.error} Error en la reproducción. Saltando a la siguiente canción...`)
+            .setDescription(`${client.config.emojis.error} Error en la reproducción: **${error.message || error.type || "Desconocido"}**\nSaltando a la siguiente canción...`)
             .setTimestamp();
 
         try {

@@ -6,8 +6,20 @@ module.exports = {
     // Lavalink Configuration
     nodes: [
         {
-            name: "Local Lavalink",
+            name: "Serenetia v4",
             url: "lavalinkv4.serenetia.com:443",
+            auth: "https://dsc.gg/ajidevserver",
+            secure: true
+        },
+        {
+            name: "lavalink.jirayu.net",
+            url: "lavalink.jirayu.net:443",
+            auth: "youshallnotpass",
+            secure: true
+        },
+        {
+            name: "lavalink.serenetia.com",
+            url: "lavalink.serenetia.com:443",
             auth: "https://dsc.gg/ajidevserver",
             secure: true
         }
