@@ -23,7 +23,8 @@ class AutoMemeSystem {
         const config = this.client.autoMemeConfig?.get(guildId);
         if (!config || !config.enabled) return;
 
-        console.log(`🎭 Auto-Memes iniciado para servidor ${guildId} (cada ${config.interval / 60000} minutos)`);
+        const label = config.intervalLabel || `${config.interval / 60000} minutos`;
+        console.log(`🎭 Auto-Memes iniciado para servidor ${guildId} (cada ${label})`);
 
         // Crear nuevo intervalo
         const interval = setInterval(async () => {

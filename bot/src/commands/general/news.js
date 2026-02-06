@@ -35,6 +35,7 @@ module.exports = {
                         .addChoices(
                             { name: "30 Minutos", value: "30m" },
                             { name: "1 Hora", value: "1h" },
+                            { name: "2 Horas", value: "2h" },
                             { name: "6 Horas", value: "6h" },
                             { name: "12 Horas", value: "12h" },
                             { name: "24 Horas (1 Día)", value: "24h" },
@@ -83,6 +84,7 @@ module.exports = {
             const msMap = {
                 '30m': 30 * 60 * 1000,
                 '1h': 60 * 60 * 1000,
+                '2h': 2 * 60 * 60 * 1000,
                 '6h': 6 * 60 * 60 * 1000,
                 '12h': 12 * 60 * 60 * 1000,
                 '24h': 24 * 60 * 60 * 1000,

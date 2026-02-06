@@ -16,13 +16,19 @@ module.exports = {
                         .setRequired(true)
                         .addChannelTypes(ChannelType.GuildText)
                 )
-                .addIntegerOption(option =>
+                .addStringOption(option =>
                     option
                         .setName("intervalo")
-                        .setDescription("Intervalo en minutos (mínimo 30, máximo 1440)")
+                        .setDescription("Frecuencia de publicación")
                         .setRequired(true)
-                        .setMinValue(30)
-                        .setMaxValue(1440)
+                        .addChoices(
+                            { name: "30 Minutos", value: "30m" },
+                            { name: "1 Hora", value: "1h" },
+                            { name: "2 Horas", value: "2h" },
+                            { name: "6 Horas", value: "6h" },
+                            { name: "12 Horas", value: "12h" },
+                            { name: "24 Horas (1 Día)", value: "24h" }
+                        )
                 )
                 .addStringOption(option =>
                     option
@@ -61,7 +67,7 @@ module.exports = {
 
             if (subcommand === "setup") {
                 const canal = interaction.options.getChannel("canal");
-                const intervalo = interaction.options.getInteger("intervalo");
+                const intervaloStr = interaction.options.getString("intervalo");
                 const categoria = interaction.options.getString("categoria") || "memes";
 
                 // Verificar permisos del bot en el canal
@@ -73,6 +79,19 @@ module.exports = {
                     });
                 }
 
+                // Convertir intervalo a ms
+                const msMap = {
+                    '30m': 30 * 60 * 1000,
+                    '1h': 60 * 60 * 1000,
+                    '2h': 2 * 60 * 60 * 1000,
+                    '6h': 6 * 60 * 60 * 1000,
+                    '12h': 12 * 60 * 60 * 1000,
+                    '24h': 24 * 60 * 60 * 1000
+                };
+
+                // Fallback para backward compatibility o valores custom si se permitieran en el futuro
+                let intervalMs = msMap[intervaloStr] || 30 * 60 * 1000;
+
                 // Guardar configuración
                 if (!client.autoMemeConfig) {
                     client.autoMemeConfig = new Map();
@@ -80,7 +99,8 @@ module.exports = {
 
                 client.autoMemeConfig.set(interaction.guildId, {
                     channelId: canal.id,
-                    interval: intervalo * 60 * 1000, // Convertir a milisegundos
+                    interval: intervalMs,
+                    intervalLabel: intervaloStr,
                     category: categoria,
                     enabled: true
                 });
@@ -99,7 +119,7 @@ module.exports = {
                     .setDescription("El sistema de publicación automática ha sido configurado correctamente.")
                     .addFields(
                         { name: "📍 Canal", value: `${canal}`, inline: true },
-                        { name: "⏱️ Intervalo", value: `${intervalo} minutos`, inline: true },
+                        { name: "⏱️ Frecuencia", value: intervaloStr, inline: true },
                         { name: "🎭 Categoría", value: categoria, inline: true }
                     )
                     .setFooter({ text: `Configurado por ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
@@ -144,14 +164,20 @@ module.exports = {
 
                 const config = client.autoMemeConfig.get(interaction.guildId);
                 const canal = interaction.guild.channels.cache.get(config.channelId);
-                const intervaloMinutos = config.interval / 60000;
+
+                // Calcular label si no existe (backward compatibility)
+                let freqLabel = config.intervalLabel;
+                if (!freqLabel) {
+                    const mins = config.interval / 60000;
+                    freqLabel = mins >= 60 ? `${(mins / 60).toFixed(1)}h` : `${mins}m`;
+                }
 
                 const embed = new EmbedBuilder()
                     .setColor(color)
                     .setTitle("📊 Estado de Auto-Memes")
                     .addFields(
                         { name: "📍 Canal", value: canal ? `${canal}` : "❌ Canal no encontrado", inline: true },
-                        { name: "⏱️ Intervalo", value: `${intervaloMinutos} minutos`, inline: true },
+                        { name: "⏱️ Frecuencia", value: freqLabel, inline: true },
                         { name: "🎭 Categoría", value: config.category, inline: true },
                         { name: "🟢 Estado", value: config.enabled ? "Activo" : "Inactivo", inline: true }
                     )
