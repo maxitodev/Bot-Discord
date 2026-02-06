@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, MessageFlags } = require("discord.js");
 const { formatDuration } = require("../../utils/formatDuration");
 
 module.exports = {
@@ -22,11 +22,17 @@ module.exports = {
         }
 
         try {
-            // Buscamos sugerencias en YouTube
-            const result = await client.manager.search(focusedValue, { requester: interaction.user, engine: 'youtube' });
+            // Buscamos sugerencias en YouTube con timeout para evitar 'Unknown interaction'
+            const searchPromise = client.manager.search(focusedValue, { requester: interaction.user, engine: 'youtube' });
+
+            // Discord solo espera 3 segundos para autocomplete. Damos 2.5s para buscar.
+            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2500));
+
+            const result = await Promise.race([searchPromise, timeoutPromise]);
 
             if (!result || !result.tracks || result.tracks.length === 0) {
-                return interaction.respond([]);
+                if (!interaction.responded) await interaction.respond([]);
+                return;
             }
 
             // Mapeamos los resultados para Discord (max 25 opciones)
@@ -46,12 +52,24 @@ module.exports = {
                 };
             });
 
-            await interaction.respond(options);
+            if (!interaction.responded) {
+                await interaction.respond(options);
+            }
 
         } catch (error) {
+            if (error.code === 10062 || error.code === 40060) {
+                // Unknown interaction (timeout) o Already acknowledged.
+                // Ignorar estos errores ya que no podemos hacer nada.
+                return;
+            }
             console.error("Error en autocomplete:", error);
-            // En caso de error, respondemos vacío para no trabar la UI
-            await interaction.respond([]);
+
+            // Intentar responder vacío solo si no se ha respondido aún
+            try {
+                if (!interaction.responded) await interaction.respond([]);
+            } catch (e) {
+                // Ignorar error secundario al intentar responder vacío
+            }
         }
     },
 
@@ -59,7 +77,12 @@ module.exports = {
         const query = interaction.options.getString("cancion");
         const { member, guild, channel } = interaction;
 
-        await interaction.deferReply();
+        try {
+            await interaction.deferReply();
+        } catch (error) {
+            // Si falla el defer (ej. timeout), paramos
+            return;
+        }
 
         if (!member.voice.channel) {
             return interaction.editReply({
@@ -177,7 +200,7 @@ module.exports = {
                 });
 
                 collector.on('collect', async i => {
-                    if (i.user.id !== member.id) return i.reply({ content: "❌ No es tu búsqueda.", ephemeral: true });
+                    if (i.user.id !== member.id) return i.reply({ content: "❌ No es tu búsqueda.", flags: MessageFlags.Ephemeral });
 
                     const track = tracks[parseInt(i.values[0])];
                     player.queue.add(track);
@@ -212,8 +235,10 @@ module.exports = {
                 .setColor(client.config.colors.error)
                 .setDescription(`${client.config.emojis.error} Error al procesar la solicitud.`);
 
-            if (interaction.deferred) return interaction.editReply({ embeds: [errEmbed] });
-            return interaction.reply({ embeds: [errEmbed], ephemeral: true });
+            if (interaction.deferred || interaction.replied) {
+                return interaction.editReply({ embeds: [errEmbed] });
+            }
+            return interaction.reply({ embeds: [errEmbed], flags: MessageFlags.Ephemeral });
         }
     }
 };

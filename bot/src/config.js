@@ -1,28 +1,16 @@
 module.exports = {
     // Bot Configuration
-    token: process.env.DISCORD_TOKEN || "TU_TOKEN_AQUI",
-    clientId: process.env.CLIENT_ID || "TU_CLIENT_ID_AQUI",
+    token: process.env.DISCORD_TOKEN,
+    clientId: process.env.CLIENT_ID,
 
     // Lavalink Configuration
     nodes: [
-        {
-            name: "Serenetia v4",
-            url: "lavalinkv4.serenetia.com:443",
-            auth: "https://dsc.gg/ajidevserver",
-            secure: true
-        },
         {
             name: "lavalink.jirayu.net",
             url: "lavalink.jirayu.net:443",
             auth: "youshallnotpass",
             secure: true
         },
-        {
-            name: "lavalink.serenetia.com",
-            url: "lavalink.serenetia.com:443",
-            auth: "https://dsc.gg/ajidevserver",
-            secure: true
-        }
     ],
 
     // Bot Settings

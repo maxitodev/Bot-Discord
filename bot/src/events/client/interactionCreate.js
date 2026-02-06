@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, MessageFlags } = require("discord.js");
 
 module.exports = {
     name: "interactionCreate",
@@ -25,7 +25,7 @@ module.exports = {
         if (!command) {
             return interaction.reply({
                 content: "❌ Este comando no existe.",
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -39,9 +39,9 @@ module.exports = {
                 .setDescription(`${client.config.emojis.error} Ha ocurrido un error al ejecutar este comando.`);
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
         }
     }
