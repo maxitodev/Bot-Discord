@@ -50,6 +50,21 @@ class MusicBot extends Client {
         this.newsSystem = new NewsSystem(this);
         this.newsSystem.start();
 
+        // Transform config.nodes to Shoukaku format
+        const nodes = config.nodes.map(node => {
+            // Check if using the custom "host/port/password" format
+            if (node.host) {
+                return {
+                    name: node.name || node.host,
+                    url: `${node.host}:${node.port}`,
+                    auth: node.password,
+                    secure: node.secure
+                };
+            }
+            // Return as is if already in Shoukaku format
+            return node;
+        });
+
         // Initialize Kazagumo Manager with Shoukaku
         this.manager = new Kazagumo({
             defaultSearchEngine: "youtube",
@@ -57,7 +72,13 @@ class MusicBot extends Client {
                 const guild = this.guilds.cache.get(guildId);
                 if (guild) guild.shard.send(payload);
             }
-        }, new Connectors.DiscordJS(this), config.nodes);
+        }, new Connectors.DiscordJS(this), nodes, {
+            moveOnDisconnect: false,
+            resume: true,
+            resumeTimeout: 30,
+            reconnectTries: 5,
+            restTimeout: 10000
+        });
 
         this.loadCommands();
         this.loadEvents();

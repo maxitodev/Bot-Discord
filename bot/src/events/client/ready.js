@@ -1,7 +1,7 @@
 const { ActivityType, REST, Routes } = require("discord.js");
 
 module.exports = {
-    name: "ready",
+    name: "clientReady",
     once: true,
     async execute(client) {
         console.log(`\n${"═".repeat(50)}`);

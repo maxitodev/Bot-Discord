@@ -1,3 +1,5 @@
+// Ignore expired SSL certificates for Lavalink
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 require("dotenv").config();
 const MusicBot = require("./structures/Client");
 

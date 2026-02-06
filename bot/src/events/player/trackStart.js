@@ -11,6 +11,12 @@ module.exports = {
             try { await player.nowPlayingMessage.delete(); } catch (e) { }
         }
 
+        // Cancel Auto Disconnect if exists
+        if (player.disconnectTimeout) {
+            clearTimeout(player.disconnectTimeout);
+            player.disconnectTimeout = null;
+        }
+
         // --- MODERN MINIMALIST UI (DARK) ---
 
         const duration = track.isStream ? "🔴 LIVE" : formatDuration(track.length);

@@ -6,9 +6,9 @@ module.exports = {
     // Lavalink Configuration
     nodes: [
         {
-            name: "lavalink.jirayu.net",
-            url: "lavalink.jirayu.net:443",
-            auth: "youshallnotpass",
+            host: "lavalink.jirayu.net",
+            port: 443,
+            password: "youshallnotpass",
             secure: true
         },
     ],

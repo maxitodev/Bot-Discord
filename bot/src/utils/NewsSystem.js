@@ -55,62 +55,88 @@ class NewsSystem {
         const subscriptions = this.client.configManager.load('news_subs');
         if (!subscriptions || subscriptions.size === 0) return;
 
-        // Agrupar suscripciones por categoría para no hacer peticiones duplicadas
-        const categoriesToCheck = new Set();
-        for (const sub of subscriptions.values()) {
-            if (sub.enabled) categoriesToCheck.add(sub.category);
+        // Identificar qué categorías necesitan revisión (si al menos una sub lo requiere)
+        const categoriesToFetch = new Set();
+        const pendingSubs = [];
+
+        for (const [guildId, guildSubs] of subscriptions.entries()) {
+            // Manejar tanto array como objeto simple (migración)
+            const subsList = Array.isArray(guildSubs) ? guildSubs : [guildSubs];
+
+            for (const sub of subsList) {
+                if (!sub.enabled) continue;
+
+                // Verificar intervalo (default 30m si no existe)
+                const interval = sub.interval || 30 * 60 * 1000;
+                const lastCheck = sub.lastCheck || 0;
+
+                if (Date.now() - lastCheck >= interval) {
+                    categoriesToFetch.add(sub.category);
+                    pendingSubs.push({ guildId, sub });
+                }
+            }
         }
 
-        for (const category of categoriesToCheck) {
-            await this.processFeed(category, subscriptions);
+        if (categoriesToFetch.size === 0) return;
+
+        // Fetch de las feeds necesarias
+        const feedCache = new Map();
+        for (const category of categoriesToFetch) {
+            const source = this.sources[category];
+            if (source) {
+                try {
+                    const feed = await this.parser.parseURL(source.url);
+                    feedCache.set(category, feed);
+                } catch (error) {
+                    console.error(`❌ Error fetching feed ${category}:`, error.message);
+                }
+            }
         }
 
-        // Guardar historial actualizado
-        this.client.configManager.save('news_history', this.lastNews);
-    }
+        // Procesar suscripciones pendientes
+        let updates = false;
+        for (const { guildId, sub } of pendingSubs) {
+            const feed = feedCache.get(sub.category);
+            if (!feed || !feed.items || feed.items.length === 0) continue;
 
-    async processFeed(category, subscriptions) {
-        const source = this.sources[category];
-        if (!source) return;
+            const source = this.sources[sub.category];
 
-        try {
-            const feed = await this.parser.parseURL(source.url);
-            if (!feed || !feed.items || feed.items.length === 0) return;
-
-            // Obtener la última noticia guardada para esta categoría
-            const lastProcessedId = this.lastNews.get(category);
-
-            // Filtrar noticias nuevas
-            // Tomamos las últimas 3 para no saturar si es la primera vez
-            const latestItems = feed.items.slice(0, 3);
-
-            // Encontrar noticias que sean más nuevas que la última guardada
-            // (Comparando GUID o Link o Título)
+            // Determinar noticias nuevas para esta suscripción
+            const latestItems = feed.items.slice(0, 5); // Mirar las últimas 5
             const newItems = [];
 
-            for (const item of latestItems) {
-                const itemId = item.guid || item.link || item.title;
-                if (itemId === lastProcessedId) break; // Ya llegamos a la que habíamos visto
-                newItems.unshift(item); // Agregar al principio (orden cronológico)
-            }
-
-            // Si hay noticias nuevas
-            if (newItems.length > 0) {
-                // Actualizar puntero de última noticia
-                const newestItem = newItems[newItems.length - 1];
-                this.lastNews.set(category, newestItem.guid || newestItem.link || newestItem.title);
-
-                // Enviar a todos los canales suscritos
-                for (const [guildId, config] of subscriptions.entries()) {
-                    if (config.category === category && config.enabled) {
-                        await this.sendNewsToGuild(guildId, config.channelId, newItems, source);
-                    }
+            // Si es la primera vez (no lastItemId), enviamos solo la más reciente
+            if (!sub.lastItemId) {
+                newItems.push(latestItems[0]);
+            } else {
+                // Buscar noticias más nuevas que la última guardada
+                for (const item of latestItems) {
+                    const itemId = item.guid || item.link || item.title;
+                    if (itemId === sub.lastItemId) break;
+                    newItems.unshift(item); // Orden cronológico
                 }
             }
 
-        } catch (error) {
-            console.error(`❌ Error procesando feed ${category}:`, error.message);
+            if (newItems.length > 0) {
+                await this.sendNewsToGuild(guildId, sub.channelId, newItems, source);
+
+                // Actualizar puntero
+                const newestItem = newItems[newItems.length - 1];
+                sub.lastItemId = newestItem.guid || newestItem.link || newestItem.title;
+            }
+
+            // Actualizar tiempo de chequeo
+            sub.lastCheck = Date.now();
+            updates = true;
         }
+
+        if (updates) {
+            this.client.configManager.save('news_subs', subscriptions);
+        }
+    }
+
+    async processFeed(category, subscriptions) {
+        // Deprecated in favor of logic in checkFeeds
     }
 
     async sendNewsToGuild(guildId, channelId, items, source) {
@@ -130,6 +156,11 @@ class NewsSystem {
             const imgMatch = item.content?.match(/src="([^"]+)"/);
             if (imgMatch) imageUrl = imgMatch[1];
             if (!imageUrl && item.enclosure?.url) imageUrl = item.enclosure.url;
+
+            // Corregir URLs relativas al protocolo (empezando con //)
+            if (imageUrl && imageUrl.startsWith("//")) {
+                imageUrl = "https:" + imageUrl;
+            }
 
             const embed = new EmbedBuilder()
                 .setColor(source.color)

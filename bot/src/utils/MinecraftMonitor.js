@@ -182,16 +182,6 @@ class MinecraftMonitor {
             };
         }
 
-        // Muerte de jugador
-        const deathMatch = line.match(/\]: (\w+) (.+)/);
-        if (deathMatch && this.isDeathMessage(deathMatch[2])) {
-            return {
-                type: 'death',
-                player: deathMatch[1],
-                message: deathMatch[2] // Pasamos el mensaje crudo para procesarlo después
-            };
-        }
-
         // Logro conseguido
         const achievementMatch = line.match(/\]: (\w+) has made the advancement \[(.+)\]/);
         if (achievementMatch) {
@@ -223,6 +213,30 @@ class MinecraftMonitor {
                 achievement: goalMatch[2],
                 message: `${goalMatch[1]} ha alcanzado la meta [${goalMatch[2]}]`
             };
+        }
+
+        // Muerte de jugador (moved to bottom as catch-all for player events that aren't the above)
+        const deathMatch = line.match(/\]: (\w+) (.+)/);
+        if (deathMatch) {
+            const player = deathMatch[1];
+            const message = deathMatch[2];
+
+            // Si es un mensaje de muerte conocido O si el jugador está online y parece un mensaje de sistema (no chat)
+            // Se asume que es muerte si pasó los filtros anteriores (no es logro, no es join/leave)
+            // Y verificamos que el jugador esté en la lista de online para evitar falsos positivos con 'Server' u otros
+            const isKnownDeath = this.isDeathMessage(message);
+            const isPlayerOnline = this.onlinePlayers.get(guildId)?.has(player);
+
+            if (isKnownDeath || isPlayerOnline) {
+                // Filtrar caídas de conexión que no sean muertes si escapan el regex de leave
+                if (message.includes("lost connection")) return null;
+
+                return {
+                    type: 'death',
+                    player: player,
+                    message: message
+                };
+            }
         }
 
         return null;
