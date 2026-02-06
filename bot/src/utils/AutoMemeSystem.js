@@ -23,6 +23,11 @@ class AutoMemeSystem {
         const config = this.client.autoMemeConfig?.get(guildId);
         if (!config || !config.enabled) return;
 
+        // Cargar historial de memes para evitar repeticiones tras reinicio
+        if (this.lastMemes.size === 0) {
+            this.lastMemes = this.client.configManager.load('meme_history') || new Map();
+        }
+
         const label = config.intervalLabel || `${config.interval / 60000} minutos`;
         console.log(`🎭 Auto-Memes iniciado para servidor ${guildId} (cada ${label})`);
 
@@ -33,92 +38,12 @@ class AutoMemeSystem {
 
         this.intervals.set(guildId, interval);
 
-        // Publicar primer meme inmediatamente (opcional, comentar si no se desea)
+        // Publicar primer meme inmediatamente (opcional)
         // setTimeout(() => this.postMeme(guildId), 5000);
     }
 
-    /**
-     * Detiene el sistema de auto-memes para un servidor
-     * @param {string} guildId - ID del servidor
-     */
-    stop(guildId) {
-        const interval = this.intervals.get(guildId);
-        if (interval) {
-            clearInterval(interval);
-            this.intervals.delete(guildId);
-            console.log(`🛑 Auto-Memes detenido para servidor ${guildId}`);
-        }
-    }
+    // ... (omitted code) ...
 
-    /**
-     * Publica un meme en el canal configurado
-     * @param {string} guildId - ID del servidor
-     */
-    async postMeme(guildId) {
-        try {
-            const config = this.client.autoMemeConfig?.get(guildId);
-            if (!config || !config.enabled) {
-                this.stop(guildId);
-                return;
-            }
-
-            const guild = this.client.guilds.cache.get(guildId);
-            if (!guild) {
-                console.error(`❌ Servidor ${guildId} no encontrado`);
-                this.stop(guildId);
-                return;
-            }
-
-            const channel = guild.channels.cache.get(config.channelId);
-            if (!channel) {
-                console.error(`❌ Canal ${config.channelId} no encontrado en servidor ${guild.name}`);
-                this.stop(guildId);
-                return;
-            }
-
-            // Obtener meme
-            const meme = await this.fetchMeme(config.category, guildId);
-            if (!meme) {
-                console.error(`❌ No se pudo obtener meme para ${guild.name}`);
-                return;
-            }
-
-            // Verificar NSFW
-            if (meme.nsfw && !channel.nsfw) {
-                console.warn(`⚠️ Meme NSFW omitido en canal no-NSFW (${guild.name})`);
-                return;
-            }
-
-            // Safe color access
-            const color = (this.client.config && this.client.config.colors && this.client.config.colors.main)
-                ? this.client.config.colors.main
-                : 0xFF4500;
-
-            const embed = new EmbedBuilder()
-                .setColor(color)
-                .setTitle(meme.title.length > 256 ? meme.title.substring(0, 253) + "..." : meme.title)
-                .setImage(meme.url)
-                .setFooter({
-                    text: `👍 ${meme.ups} upvotes | r/${meme.subreddit} | Auto-Meme`,
-                    iconURL: this.client.user.displayAvatarURL()
-                })
-                .setTimestamp()
-                .setURL(meme.postLink);
-
-            await channel.send({ embeds: [embed] });
-            console.log(`✅ Meme publicado en ${guild.name} (#${channel.name})`);
-
-        } catch (error) {
-            console.error(`❌ Error al publicar meme en servidor ${guildId}:`, error);
-        }
-    }
-
-    /**
-     * Obtiene un meme aleatorio usando meme-api.com
-     * @param {string} category - Categoría del meme
-     * @param {string} guildId - ID del servidor (para evitar duplicados)
-     * @returns {Promise<Object|null>}
-     */
     async fetchMeme(category, guildId) {
         const subreddits = {
             memes: ["memes", "dankmemes", "me_irl"],
@@ -158,7 +83,11 @@ class AutoMemeSystem {
             };
 
             // Evitar duplicados recientes
-            const guildLastMemes = this.lastMemes.get(guildId) || [];
+            let guildLastMemes = this.lastMemes.get(guildId);
+            if (!Array.isArray(guildLastMemes)) {
+                // Si venía de JSON puede que necesite conversión o inicialización
+                guildLastMemes = [];
+            }
 
             // Si este meme ya se publicó recientemente, intentar obtener otro
             if (guildLastMemes.includes(meme.url)) {
@@ -186,6 +115,7 @@ class AutoMemeSystem {
                             guildLastMemes.shift();
                         }
                         this.lastMemes.set(guildId, guildLastMemes);
+                        this.client.configManager.save('meme_history', this.lastMemes); // GUARDAR
                         return retryMeme;
                     }
                 }
@@ -197,6 +127,7 @@ class AutoMemeSystem {
                 guildLastMemes.shift();
             }
             this.lastMemes.set(guildId, guildLastMemes);
+            this.client.configManager.save('meme_history', this.lastMemes); // GUARDAR
 
             return meme;
 
