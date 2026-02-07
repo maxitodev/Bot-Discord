@@ -6,10 +6,10 @@ module.exports = {
     // Lavalink Configuration
     nodes: [
         {
-            host: "lavalink.jirayu.net",
-            port: 443,
-            password: "youshallnotpass",
-            secure: true
+            host: "217.77.2.218",
+            port: 2333,
+            password: "maxitodev", // Asegúrate que sea la misma que en application.yml del VPS
+            secure: false
         },
     ],
 

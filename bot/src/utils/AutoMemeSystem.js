@@ -13,6 +13,18 @@ class AutoMemeSystem {
     }
 
     /**
+     * Detiene el sistema de auto-memes para un servidor
+     * @param {string} guildId - ID del servidor
+     */
+    stop(guildId) {
+        if (this.intervals.has(guildId)) {
+            clearInterval(this.intervals.get(guildId));
+            this.intervals.delete(guildId);
+            console.log(`🛑 Auto-Memes detenido para servidor ${guildId}`);
+        }
+    }
+
+    /**
      * Inicia el sistema de auto-memes para un servidor
      * @param {string} guildId - ID del servidor
      */
