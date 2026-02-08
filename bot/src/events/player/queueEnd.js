@@ -3,68 +3,94 @@ const { EmbedBuilder } = require("discord.js");
 module.exports = {
     name: "playerEmpty",
     async execute(player, client) {
+        // Verificar que el player existe y no está destruido
+        if (!player || player.state === 'DESTROYED' || player.state === 'DISCONNECTED') return;
+
         const channel = client.channels.cache.get(player.textId);
         if (!channel) return;
 
         // Check for Autoplay
         const musicConfig = client.configManager.load('music_settings') || {};
         const guildConfig = musicConfig[player.guildId] || {};
-        // Default to TRUE unless explicitly set to false
         const autoplayEnabled = guildConfig.autoplay !== false;
 
         if (autoplayEnabled) {
-            const previousTrack = player.queue.previous[player.queue.previous.length - 1];
+            const previousTrack = player.queue.previous?.[player.queue.previous.length - 1];
 
             if (previousTrack) {
                 try {
-                    // Smart recommendation: Use YouTube Music search for better "related" tracks
-                    // Search for the artist and title to fulfill "related not random"
-                    const searchQuery = `ytmsearch:${previousTrack.title} ${previousTrack.author}`;
-                    let res = await client.manager.search(searchQuery, { requester: client.user });
+                    // Verificar player antes de continuar
+                    if (!player || player.state === 'DESTROYED') return;
 
-                    if (!res || res.tracks.length === 0) {
-                        // Fallback to standard YouTube search if YTM fails
-                        const fallbackQuery = `ytsearch:${previousTrack.author} ${previousTrack.title} related`;
-                        res = await client.manager.search(fallbackQuery, { requester: client.user });
+                    // Historial para evitar repeticiones
+                    if (!player.playedHistory) player.playedHistory = [];
+                    player.playedHistory.push(previousTrack.uri);
+                    if (player.playedHistory.length > 20) player.playedHistory.shift();
+
+                    // Estrategias de búsqueda
+                    const strategies = [
+                        `ytsearch:${previousTrack.author} ${previousTrack.title} mix`,
+                        `ytsearch:${previousTrack.author} songs`,
+                        `ytsearch:${previousTrack.title} similar`
+                    ];
+
+                    let trackToPlay = null;
+
+                    for (const query of strategies) {
+                        // Verificar player antes de cada búsqueda
+                        if (!player || player.state === 'DESTROYED') return;
+
+                        try {
+                            const res = await client.manager.search(query, { requester: client.user });
+
+                            if (res && res.tracks && res.tracks.length > 0) {
+                                const candidates = res.tracks.filter(t =>
+                                    t.uri !== previousTrack.uri &&
+                                    t.identifier !== previousTrack.identifier &&
+                                    !player.playedHistory?.includes(t.uri)
+                                );
+
+                                if (candidates.length > 0) {
+                                    const maxIndex = Math.min(candidates.length, 5);
+                                    const randomIndex = Math.floor(Math.random() * maxIndex);
+                                    trackToPlay = candidates[randomIndex];
+                                    break;
+                                }
+                            }
+                        } catch (searchError) {
+                            // Ignorar errores de búsqueda individual
+                            continue;
+                        }
                     }
 
-                    if (res && res.tracks && res.tracks.length > 0) {
-                        // Filter out the previous track and exact title matches to avoid loops
-                        // Also filter out tracks that are too long (e.g. > 15 mins) to avoid compilations if desired, but let's stick to simple filters for now
-                        const uniqueTracks = res.tracks.filter(t =>
-                            t.uri !== previousTrack.uri &&
-                            t.identifier !== previousTrack.identifier &&
-                            t.title !== previousTrack.title // Strict title check
-                        );
+                    // Verificar player antes de reproducir
+                    if (!player || player.state === 'DESTROYED') return;
 
-                        // If we have unique tracks, pick one. 
-                        // To add variety, pick random from top 5 (or fewer if less results)
-                        let trackToPlay;
-                        if (uniqueTracks.length > 0) {
-                            const maxIndex = Math.min(uniqueTracks.length, 5);
-                            const randomIndex = Math.floor(Math.random() * maxIndex);
-                            trackToPlay = uniqueTracks[randomIndex];
-                        } else {
-                            // If all filtered out (unlikely), pick the second result of original search
-                            trackToPlay = res.tracks[1] || res.tracks[0];
-                        }
+                    if (trackToPlay) {
+                        player.queue.add(trackToPlay);
 
-                        if (trackToPlay) {
-                            player.queue.add(trackToPlay);
-                            player.play();
+                        // Verificar una última vez antes de play()
+                        if (player && player.state !== 'DESTROYED') {
+                            await player.play();
 
                             const embed = new EmbedBuilder()
                                 .setColor(client.config.colors.music)
-                                .setDescription(`${client.config.emojis.autoplay} **Autoplay:** Reproduciendo recomendación: [${trackToPlay.title}](${trackToPlay.uri})`);
+                                .setDescription(`${client.config.emojis.autoplay} **Autoplay:** [${trackToPlay.title}](${trackToPlay.uri})`);
 
-                            return channel.send({ embeds: [embed] });
+                            return channel.send({ embeds: [embed] }).catch(() => { });
                         }
                     }
                 } catch (e) {
-                    console.error("Autoplay error:", e);
+                    // Ignorar errores de autoplay silenciosamente
+                    if (!e.message?.includes('destroyed')) {
+                        console.error("Autoplay error:", e.message);
+                    }
                 }
             }
         }
+
+        // Verificar player antes de enviar mensaje
+        if (!player || player.state === 'DESTROYED') return;
 
         const embed = new EmbedBuilder()
             .setColor(client.config.colors.warning)
@@ -75,19 +101,23 @@ module.exports = {
         try {
             await channel.send({ embeds: [embed] });
         } catch (error) {
-            console.error("Error al enviar mensaje de queueEnd:", error);
+            // Ignorar error de envío
         }
 
-        // 5 Minutes Timeout for Queue Empty
+        // 5 Minutes Timeout
         if (player.disconnectTimeout) clearTimeout(player.disconnectTimeout);
 
         player.disconnectTimeout = setTimeout(() => {
-            if (player && player.queue.size === 0 && !player.playing) {
-                player.destroy();
-                const timeoutEmbed = new EmbedBuilder()
-                    .setColor(client.config.colors.error)
-                    .setDescription("💤 **Desconectado por inactividad.** (Cola vacía)");
-                channel.send({ embeds: [timeoutEmbed] }).catch(() => { });
+            try {
+                if (player && player.state !== 'DESTROYED' && player.queue.size === 0 && !player.playing) {
+                    player.destroy();
+                    const timeoutEmbed = new EmbedBuilder()
+                        .setColor(client.config.colors.error)
+                        .setDescription("💤 **Desconectado por inactividad.**");
+                    channel.send({ embeds: [timeoutEmbed] }).catch(() => { });
+                }
+            } catch (e) {
+                // Player ya destruido, ignorar
             }
         }, 5 * 60 * 1000);
     }

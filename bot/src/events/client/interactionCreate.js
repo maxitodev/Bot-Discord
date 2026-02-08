@@ -12,6 +12,8 @@ module.exports = {
             try {
                 await command.autocomplete(interaction, client);
             } catch (error) {
+                // Silently ignore expected errors (user typing fast, interaction expired)
+                if (error.code === 10062 || error.code === 40060) return;
                 console.error("Error en autocomplete:", error);
             }
             return;
@@ -38,10 +40,11 @@ module.exports = {
                 .setColor(client.config.colors.error)
                 .setDescription(`${client.config.emojis.error} Ha ocurrido un error al ejecutar este comando.`);
 
+            // Check if interaction is already handled
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true }).catch(() => { });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true }).catch(() => { });
             }
         }
     }

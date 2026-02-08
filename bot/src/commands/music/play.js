@@ -10,66 +10,59 @@ module.exports = {
                 .setName("cancion")
                 .setDescription("Nombre de la canción o URL")
                 .setRequired(true)
-                .setAutocomplete(true) // Activamos el autocompletado
+                .setAutocomplete(true)
         ),
 
     async autocomplete(interaction, client) {
         const focusedValue = interaction.options.getFocused();
 
-        // Si no han escrito nada, no buscamos
-        if (!focusedValue) {
-            return interaction.respond([]);
+        // Si no hay input o es muy corto, responder vacío
+        if (!focusedValue || focusedValue.length < 2) {
+            return interaction.respond([]).catch(() => { });
         }
 
         try {
-            // Buscamos sugerencias en YouTube con timeout para evitar 'Unknown interaction'
-            const searchPromise = client.manager.search(focusedValue, { requester: interaction.user, engine: 'youtube' });
+            // Timeout que resuelve con null
+            const timeoutPromise = new Promise(resolve =>
+                setTimeout(() => resolve(null), 2500)
+            );
 
-            // Discord solo espera 3 segundos para autocomplete. Damos 2.5s para buscar.
-            const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2500));
+            // Usar engine: 'youtube' para búsqueda correcta en YouTube
+            const searchPromise = client.manager.search(focusedValue, {
+                requester: interaction.user,
+                engine: 'youtube'
+            });
 
             const result = await Promise.race([searchPromise, timeoutPromise]);
 
+            // Si timeout o no hay resultados
             if (!result || !result.tracks || result.tracks.length === 0) {
-                if (!interaction.responded) await interaction.respond([]);
-                return;
+                return interaction.respond([]).catch(() => { });
             }
 
-            // Mapeamos los resultados para Discord (max 25 opciones)
-            const options = result.tracks.slice(0, 20).map(track => {
-                const title = track.title || "Desconocido";
-                const author = track.author || "Desconocido";
+            // Formatear opciones para Discord (max 25)
+            const options = result.tracks.slice(0, 25).map(track => {
+                let displayName = track.title || 'Sin título';
+                const artist = track.author || '';
 
-                // Discord API limit: 100 characters for name
-                let name = `${title} - ${author}`;
-                if (name.length > 85) { // Bajamos a 85 para ir sobrados y evitar errores
-                    name = name.substring(0, 85) + "...";
+                if (displayName.length > 70) {
+                    displayName = displayName.substring(0, 70) + '...';
+                }
+
+                if (artist && (displayName.length + artist.length + 3) < 100) {
+                    displayName = `${displayName} - ${artist}`;
                 }
 
                 return {
-                    name: name,
+                    name: displayName.substring(0, 100),
                     value: track.uri
                 };
             });
 
-            if (!interaction.responded) {
-                await interaction.respond(options);
-            }
+            await interaction.respond(options).catch(() => { });
 
         } catch (error) {
-            if (error.code === 10062 || error.code === 40060) {
-                // Unknown interaction (timeout) o Already acknowledged.
-                // Ignorar estos errores ya que no podemos hacer nada.
-                return;
-            }
-            console.error("Error en autocomplete:", error);
-
-            // Intentar responder vacío solo si no se ha respondido aún
-            try {
-                if (!interaction.responded) await interaction.respond([]);
-            } catch (e) {
-                // Ignorar error secundario al intentar responder vacío
-            }
+            // Ignorar silenciosamente
         }
     },
 
@@ -80,7 +73,6 @@ module.exports = {
         try {
             await interaction.deferReply();
         } catch (error) {
-            // Si falla el defer (ej. timeout), paramos
             return;
         }
 
@@ -94,7 +86,6 @@ module.exports = {
             });
         }
 
-        // ... Permisos ...
         const permissions = member.voice.channel.permissionsFor(client.user);
         if (!permissions.has("Connect") || !permissions.has("Speak")) {
             return interaction.editReply({
@@ -107,15 +98,12 @@ module.exports = {
         }
 
         try {
-            // Como usamos Autocomplete, es muy probable que 'query' ya sea una URL directa (track.uri)
-            // Pero mantenemos la lógica de búsqueda por si el usuario ignora el autocomplete y escribe texto
             const isUrl = /^https?:\/\//.test(query);
             let result;
 
             if (isUrl) {
                 result = await client.manager.search(query, { requester: member });
             } else {
-                // Inteligencia de Búsqueda Múltiple (Fallback)
                 result = await client.manager.search(query, { requester: member, engine: 'youtube' });
                 if (!result || !result.tracks || !result.tracks.length) {
                     result = await client.manager.search(query, { requester: member, engine: 'youtube_music' });
@@ -135,7 +123,6 @@ module.exports = {
                 });
             }
 
-            // Crear Player
             let player = client.manager.players.get(guild.id);
             if (!player) {
                 player = await client.manager.createPlayer({
@@ -145,11 +132,9 @@ module.exports = {
                     deaf: true,
                     volume: client.config.defaultVolume
                 });
-                // Activar autoplay por defecto
                 player.autoplay = true;
             }
 
-            // Si es Playlist
             if (result.type === "PLAYLIST") {
                 for (const track of result.tracks) player.queue.add(track);
 
@@ -160,16 +145,6 @@ module.exports = {
                 if (!player.playing && !player.paused) player.play();
                 return interaction.editReply({ embeds: [embed] });
             }
-
-            // Si es Single Track (Ya sea por URL directa del autocomplete o por búsqueda)
-            // Nota: Si viene del autocomplete, es una URL directa, así que entra aquí directo.
-            // Si el usuario escribió texto y no usó autocomplete, podríamos mostrar el menú select...
-            // PERO la experiencia de usuario moderna prefiere que si escribes texto y das enter, 
-            // se reproduzca el primer resultado, y si quieres elegir, uses el autocomplete.
-
-            // Para mantener la consistencia con lo que pediste antes ("como Miko"), 
-            // si NO es URL, mostramos el menú de selección.
-            // Si ES URL (lo que devuelve el autocomplete), reproducimos directo.
 
             if (!isUrl && result.type !== "PLAYLIST") {
                 const tracks = result.tracks.slice(0, 10);
@@ -218,7 +193,6 @@ module.exports = {
                 return;
             }
 
-            // Reproducción Directa (Autocomplete URL o Link pegado)
             const track = result.tracks[0];
             player.queue.add(track);
 

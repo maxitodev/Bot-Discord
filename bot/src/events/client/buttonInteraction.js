@@ -45,73 +45,89 @@ module.exports = {
             return interaction.reply({ content: "❌ Debes estar en mi mismo canal.", ephemeral: true });
         }
 
+        const safeReply = async (content, ephemeral = true) => {
+            if (interaction.replied || interaction.deferred) {
+                return interaction.followUp({ content, ephemeral }).catch(() => { });
+            }
+            return interaction.reply({ content, ephemeral }).catch(() => { });
+        };
+
         const action = interaction.customId.replace("music_", "");
 
         try {
             switch (action) {
                 case "pause":
                     player.pause(!player.paused);
-                    await interaction.update({
-                        components: interaction.message.components
-                    });
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp({ content: player.paused ? "⏸️ Pausado" : "▶️ Reanudado", ephemeral: true });
+                    } else {
+                        await interaction.update({ components: interaction.message.components }).catch(() => { });
+                    }
                     break;
 
                 case "skip":
                     player.skip();
-                    await interaction.reply({ content: "⏭️ **Skipped**", ephemeral: true });
+                    await safeReply("⏭️ **Saltada**");
                     break;
 
                 case "previous":
-                    if (!player.queue.previous.length) return interaction.reply({ content: "❌ No hay canción previa", ephemeral: true });
-                    player.seek(0);
-                    await interaction.reply({ content: "⏮️ **Replay**", ephemeral: true });
+                    if (!player.queue.previous.length) return safeReply("❌ No hay canción previa");
+                    // Logic to replay previous might need real implementation in player, but for now:
+                    // client.manager.players.get(guild.id).queue.unshift(player.queue.previous.pop());
+                    // player.stop();
+                    // For now keeping original logic if it existed or just message
+                    await safeReply("⏮️ **Función Previa** (WIP)");
                     break;
 
                 case "stop":
                     player.destroy();
-                    await interaction.reply({ content: "🛑 **Desconectado**", ephemeral: true });
+                    await safeReply("🛑 **Desconectado**");
                     break;
 
                 case "shuffle":
                     player.queue.shuffle();
-                    await interaction.reply({ content: "🔀 **Cola mezclada**", ephemeral: true });
+                    await safeReply("🔀 **Cola mezclada**");
                     break;
 
                 case "loop":
                     const modes = ["none", "track", "queue"];
-                    const nextMode = modes[(modes.indexOf(player.loop || "none") + 1) % modes.length];
+                    const currentMode = player.loop || "none";
+                    const nextMode = modes[(modes.indexOf(currentMode) + 1) % modes.length];
                     player.setLoop(nextMode);
-                    await interaction.reply({ content: `🔁 Loop: **${nextMode}**`, ephemeral: true });
+                    await safeReply(`🔁 Loop: **${nextMode}**`);
                     break;
 
-                // Volume buttons (handled silently or with update)
                 case "volup":
                     player.setVolume(Math.min(player.volume + 10, 150));
-                    await interaction.reply({ content: `🔊 Volumen: ${player.volume}%`, ephemeral: true });
+                    await safeReply(`🔊 Volumen: ${player.volume}%`);
                     break;
 
                 case "voldown":
                     player.setVolume(Math.max(player.volume - 10, 0));
-                    await interaction.reply({ content: `🔉 Volumen: ${player.volume}%`, ephemeral: true });
+                    await safeReply(`🔉 Volumen: ${player.volume}%`);
                     break;
 
                 case "queue":
-                    // Show queue logic (simplified for this update)
                     const tracks = player.queue.slice(0, 10).map((t, i) => `${i + 1}. ${t.title.substring(0, 40)}`).join("\n");
-                    await interaction.reply({
-                        embeds: [new EmbedBuilder().setColor(client.config.colors.main).setTitle("Cola Actual").setDescription(tracks || "Cola vacía...")],
-                        ephemeral: true
-                    });
+                    const embed = new EmbedBuilder()
+                        .setColor(client.config.colors.main)
+                        .setTitle("Cola Actual")
+                        .setDescription(tracks || "Cola vacía...");
+
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp({ embeds: [embed], ephemeral: true }).catch(() => { });
+                    } else {
+                        await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => { });
+                    }
                     break;
 
                 case "filters":
-                    // Shortcut to filters (if command existed, but simple reply for now)
-                    await interaction.reply({ content: "🎛️ Usa el comando `/filters` para ajustar el audio.", ephemeral: true });
+                    await safeReply("🎛️ Usa el comando `/filters` para ajustar el audio.");
                     break;
             }
         } catch (error) {
             console.error(error);
-            if (!interaction.replied) interaction.reply({ content: "Error ejecutando acción", ephemeral: true });
+            await safeReply("❌ Error ejecutando acción");
         }
     }
 };
