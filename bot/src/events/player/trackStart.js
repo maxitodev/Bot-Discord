@@ -17,12 +17,19 @@ module.exports = {
             player.disconnectTimeout = null;
         }
 
-        // Pre-buffer: Esperar un momento para que el buffer se llene
-        // Esto corrige el audio trabado al inicio de la reproducción
-        if (!player._preBuffered) {
-            player._preBuffered = true;
-            // Pequeña pausa para permitir buffering inicial
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        // Pre-buffer: Pausar momentáneamente para que Lavalink llene el buffer
+        // Esto corrige el audio trabado al inicio de CADA canción
+        try {
+            // Pausar para permitir que el buffer se llene
+            await player.pause(true);
+            // Esperar para buffering (más tiempo solo en la primera canción)
+            const bufferTime = player._firstTrackPlayed ? 1500 : 2500;
+            player._firstTrackPlayed = true;
+            await new Promise(resolve => setTimeout(resolve, bufferTime));
+            // Reanudar reproducción con buffer lleno
+            await player.pause(false);
+        } catch (e) {
+            console.warn("Pre-buffer skip:", e.message);
         }
 
         // --- MODERN MINIMALIST UI (DARK) ---
