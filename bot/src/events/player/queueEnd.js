@@ -12,7 +12,7 @@ module.exports = {
         // Check for Autoplay
         const musicConfig = client.configManager.load('music_settings') || {};
         const guildConfig = musicConfig[player.guildId] || {};
-        const autoplayEnabled = guildConfig.autoplay !== false;
+        const autoplayEnabled = guildConfig.autoplay === true;
 
         if (autoplayEnabled) {
             const previousTrack = player.queue.previous?.[player.queue.previous.length - 1];

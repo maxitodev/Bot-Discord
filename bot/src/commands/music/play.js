@@ -10,61 +10,8 @@ module.exports = {
                 .setName("cancion")
                 .setDescription("Nombre de la canción o URL")
                 .setRequired(true)
-                .setAutocomplete(true)
         ),
 
-    async autocomplete(interaction, client) {
-        const focusedValue = interaction.options.getFocused();
-
-        // Si no hay input o es muy corto, responder vacío
-        if (!focusedValue || focusedValue.length < 2) {
-            return interaction.respond([]).catch(() => { });
-        }
-
-        try {
-            // Timeout que resuelve con null
-            const timeoutPromise = new Promise(resolve =>
-                setTimeout(() => resolve(null), 2500)
-            );
-
-            // Usar engine: 'youtube' para búsqueda correcta en YouTube
-            const searchPromise = client.manager.search(focusedValue, {
-                requester: interaction.user,
-                engine: 'youtube'
-            });
-
-            const result = await Promise.race([searchPromise, timeoutPromise]);
-
-            // Si timeout o no hay resultados
-            if (!result || !result.tracks || result.tracks.length === 0) {
-                return interaction.respond([]).catch(() => { });
-            }
-
-            // Formatear opciones para Discord (max 25)
-            const options = result.tracks.slice(0, 25).map(track => {
-                let displayName = track.title || 'Sin título';
-                const artist = track.author || '';
-
-                if (displayName.length > 70) {
-                    displayName = displayName.substring(0, 70) + '...';
-                }
-
-                if (artist && (displayName.length + artist.length + 3) < 100) {
-                    displayName = `${displayName} - ${artist}`;
-                }
-
-                return {
-                    name: displayName.substring(0, 100),
-                    value: track.uri
-                };
-            });
-
-            await interaction.respond(options).catch(() => { });
-
-        } catch (error) {
-            // Ignorar silenciosamente
-        }
-    },
 
     async execute(interaction, client) {
         const query = interaction.options.getString("cancion");
@@ -132,7 +79,7 @@ module.exports = {
                     deaf: true,
                     volume: client.config.defaultVolume
                 });
-                player.autoplay = true;
+                player.autoplay = false;
             }
 
             if (result.type === "PLAYLIST") {

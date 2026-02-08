@@ -17,6 +17,14 @@ module.exports = {
             player.disconnectTimeout = null;
         }
 
+        // Pre-buffer: Esperar un momento para que el buffer se llene
+        // Esto corrige el audio trabado al inicio de la reproducción
+        if (!player._preBuffered) {
+            player._preBuffered = true;
+            // Pequeña pausa para permitir buffering inicial
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
         // --- MODERN MINIMALIST UI (DARK) ---
 
         const duration = track.isStream ? "🔴 LIVE" : formatDuration(track.length);

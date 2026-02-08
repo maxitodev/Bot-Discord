@@ -3,7 +3,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("autoplay")
-        .setDescription("♾️ Activa o desactiva el autoplay (activado por defecto)"),
+        .setDescription("♾️ Activa o desactiva el autoplay (desactivado por defecto)"),
 
     async execute(interaction, client) {
         const { member, guild } = interaction;

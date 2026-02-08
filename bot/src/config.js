@@ -17,11 +17,14 @@ module.exports = {
     defaultVolume: 80,
     maxQueueSize: 500,
 
-    // Audio Quality Settings (Optimizado para reducir lag)
+    // Audio Quality Settings (Optimizado para reducir lag y audio trabado)
     audioSettings: {
-        // Buffer settings - Aumentar para conexiones inestables
-        bufferDuration: 400,        // Duración del buffer en ms (default: 400)
-        frameBufferDuration: 5000,  // Buffer de frames (5 segundos)
+        // Buffer settings - Aumentados para evitar trabazón al inicio
+        bufferDuration: 800,        // Duración del buffer en ms (aumentado de 400)
+        frameBufferDuration: 8000,  // Buffer de frames (8 segundos, antes 5s)
+
+        // Pre-buffer antes de reproducir
+        preloadSeconds: 3,          // Segundos a prebufferear antes de reproducir
 
         // Calidad de audio
         opusQuality: 10,            // Calidad Opus (0-10, 10 = mejor)
