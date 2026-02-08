@@ -3,19 +3,30 @@ const { EmbedBuilder } = require("discord.js");
 module.exports = {
     name: "playerEmpty",
     async execute(player, client) {
+        console.log(`[DEBUG] playerEmpty event triggered for guild: ${player.guildId}`);
+
         // Verificar que el player existe y no está destruido
-        if (!player || player.state === 'DESTROYED' || player.state === 'DISCONNECTED') return;
+        if (!player || player.state === 'DESTROYED' || player.state === 'DISCONNECTED') {
+            console.log(`[DEBUG] Player skipped due to state: ${player ? player.state : 'No Player'}`);
+            return;
+        }
 
         const channel = client.channels.cache.get(player.textId);
-        if (!channel) return;
+        if (!channel) {
+            console.log(`[DEBUG] No text channel found: ${player.textId}`);
+            return;
+        }
 
         // Check for Autoplay
-        const musicConfig = client.configManager.load('music_settings') || {};
-        const guildConfig = musicConfig[player.guildId] || {};
-        const autoplayEnabled = guildConfig.autoplay === true;
+        // Priority: Player Session Autoplay -> False (Default)
+        // If player.autoplay is undefined, it is considered FALSE.
+        // It is only true if explicitly set to true.
+        const autoplayEnabled = player.autoplay === true;
+        console.log(`[DEBUG] Autoplay enabled: ${autoplayEnabled} (Value: ${player.autoplay})`);
 
         if (autoplayEnabled) {
-            const previousTrack = player.queue.previous?.[player.queue.previous.length - 1];
+            const previousTrack = player.queue.previous.length > 0 ? player.queue.previous[player.queue.previous.length - 1] : null;
+            console.log(`[DEBUG] Previous track: ${previousTrack ? previousTrack.title : 'None'}`);
 
             if (previousTrack) {
                 try {
@@ -27,11 +38,21 @@ module.exports = {
                     player.playedHistory.push(previousTrack.uri);
                     if (player.playedHistory.length > 20) player.playedHistory.shift();
 
-                    // Estrategias de búsqueda
+                    console.log(`[DEBUG] History length: ${player.playedHistory.length}`);
+
+                    // Limpiar título para mejor búsqueda (quitar paréntesis, corchetes, ft., etc)
+                    const cleanTitle = previousTrack.title
+                        .replace(/[\(\[\{].*?[\)\]\}]/g, '') // Quitar (...) [...] {...}
+                        .replace(/(ft|feat)\..*/i, '')      // Quitar ft. ...
+                        .trim();
+
+                    console.log(`[DEBUG] Cleaned title: ${cleanTitle}`);
+
+                    // Estrategias de búsqueda mejoradas
                     const strategies = [
-                        `ytsearch:${previousTrack.author} ${previousTrack.title} mix`,
-                        `ytsearch:${previousTrack.author} songs`,
-                        `ytsearch:${previousTrack.title} similar`
+                        `ytsearch:${previousTrack.author} ${cleanTitle} similar`,
+                        `ytsearch:${previousTrack.author} ${cleanTitle} mix`,
+                        `ytsearch:${previousTrack.author} best songs`
                     ];
 
                     let trackToPlay = null;
@@ -40,24 +61,36 @@ module.exports = {
                         // Verificar player antes de cada búsqueda
                         if (!player || player.state === 'DESTROYED') return;
 
+                        console.log(`[DEBUG] Searching strategy: ${query}`);
+
                         try {
                             const res = await client.manager.search(query, { requester: client.user });
 
                             if (res && res.tracks && res.tracks.length > 0) {
+                                console.log(`[DEBUG] Found ${res.tracks.length} tracks for query: ${query}`);
                                 const candidates = res.tracks.filter(t =>
                                     t.uri !== previousTrack.uri &&
                                     t.identifier !== previousTrack.identifier &&
-                                    !player.playedHistory?.includes(t.uri)
+                                    !player.playedHistory?.includes(t.uri) &&
+                                    // Evitar la misma canción con mismo título (e.g. Video vs Audio)
+                                    t.title.toLowerCase() !== previousTrack.title.toLowerCase()
                                 );
 
+                                console.log(`[DEBUG] Candidates after filtering: ${candidates.length}`);
+
                                 if (candidates.length > 0) {
-                                    const maxIndex = Math.min(candidates.length, 5);
+                                    // Tomar random de los mejores 3 resultados para variar
+                                    const maxIndex = Math.min(candidates.length, 3);
                                     const randomIndex = Math.floor(Math.random() * maxIndex);
                                     trackToPlay = candidates[randomIndex];
+                                    console.log(`[DEBUG] Selected track: ${trackToPlay.title}`);
                                     break;
                                 }
+                            } else {
+                                console.log(`[DEBUG] No tracks found for query: ${query}`);
                             }
                         } catch (searchError) {
+                            console.error(`[DEBUG] Search error for ${query}:`, searchError);
                             // Ignorar errores de búsqueda individual
                             continue;
                         }

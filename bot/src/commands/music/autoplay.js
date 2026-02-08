@@ -31,8 +31,10 @@ module.exports = {
             });
         }
 
-        // Toggle autoplay
-        player.autoplay = !player.autoplay;
+        // Toggle autoplay (Defaulting to FALSE if undefined)
+        // If undefined, treat as false. So current is false. New is true.
+        const currentAutoPlay = player.autoplay === true;
+        player.autoplay = !currentAutoPlay;
 
         const embed = new EmbedBuilder()
             .setColor(player.autoplay ? client.config.colors.success : client.config.colors.error)
