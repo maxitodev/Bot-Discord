@@ -22,8 +22,7 @@ module.exports = {
             { name: "/lyrics", description: "Muestra la letra de la canción" },
             { name: "/shuffle", description: "Mezcla la cola aleatoriamente" },
             { name: "/loop", description: "Cambia el modo de repetición" },
-            { name: "/nowplaying", description: "Muestra la canción actual" },
-            { name: "/autoplay", description: "Activa/Desactiva la reproducción automática" }
+            { name: "/nowplaying", description: "Muestra la canción actual" }
         ];
 
         const memeCommands = [

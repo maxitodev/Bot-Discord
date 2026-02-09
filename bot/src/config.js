@@ -6,11 +6,11 @@ module.exports = {
     // Lavalink Configuration
     nodes: [
         {
-            host: "217.77.2.218",
-            port: 2333,
-            password: "maxitodev", // Asegúrate que sea la misma que en application.yml del VPS
-            secure: false
-        },
+            host: "lavalinkv4.serenetia.com",
+            port: 443,
+            password: "https://dsc.gg/ajidevserver",
+            secure: true
+        }
     ],
 
     // Bot Settings
