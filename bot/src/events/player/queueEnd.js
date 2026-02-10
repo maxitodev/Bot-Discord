@@ -14,13 +14,20 @@ module.exports = {
         if (!channel) return;
 
         // --- LÓGICA DE AUTOPLAY ---
-        // Verificar si autoplay está activado en la metadata del player (o por defecto true)
-        const isAutoplayEnabled = player.data?.autoplay !== false; // Default true
+        // Verificar si autoplay está activado en la metadata del player (o por defecto false)
+        const isAutoplayEnabled = player.data?.autoplay === true; // Default false
 
         // Intentar Autoplay solo si hay una canción previa
         if (isAutoplayEnabled && player.queue.previous) {
             try {
-                const previousTrack = player.queue.previous;
+                // Kazagumo guarda previous como un array, obtenemos el último
+                let previousTrack = player.queue.previous;
+                if (Array.isArray(previousTrack)) {
+                    previousTrack = previousTrack[previousTrack.length - 1];
+                }
+
+                if (!previousTrack) return;
+
                 console.log(`[Autoplay] Buscando recomendaciones para: ${previousTrack.title}`);
 
                 // Usamos la búsqueda de relación/mix de youtube

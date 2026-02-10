@@ -6,10 +6,10 @@ module.exports = {
     // Lavalink Configuration
     nodes: [
         {
-            host: "lavalinkv4.serenetia.com",
-            port: 443,
-            password: "https://dsc.gg/ajidevserver",
-            secure: true
+            host: "localhost",
+            port: 2333,
+            password: "maxitodev",
+            secure: false
         }
     ],
 

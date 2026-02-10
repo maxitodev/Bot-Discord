@@ -42,9 +42,9 @@ module.exports = {
 
             // Check if interaction is already handled
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true }).catch(() => { });
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => { });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true }).catch(() => { });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => { });
             }
         }
     }

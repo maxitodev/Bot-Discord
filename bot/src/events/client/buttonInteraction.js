@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, MessageFlags, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
 const { formatDuration } = require("../../utils/formatDuration");
 
 module.exports = {
@@ -13,7 +13,7 @@ module.exports = {
         // Allow 'save' button even without being in voice channel or player active (it saves current song)
         if (interaction.customId === "music_save") {
             if (!player || !player.queue.current) {
-                return interaction.reply({ content: "❌ No hay canción sonando para guardar.", ephemeral: true });
+                return interaction.reply({ content: "❌ No hay canción sonando para guardar.", flags: MessageFlags.Ephemeral });
             }
             const track = player.queue.current;
             const dmEmbed = new EmbedBuilder()
@@ -26,30 +26,31 @@ module.exports = {
 
             try {
                 await member.send({ embeds: [dmEmbed] });
-                return interaction.reply({ content: "✅ Te he enviado la canción al DM.", ephemeral: true });
+                return interaction.reply({ content: "✅ Te he enviado la canción al DM.", flags: MessageFlags.Ephemeral });
             } catch (e) {
-                return interaction.reply({ content: "❌ No pude enviarte el DM. ¿Tienes los mensajes directos cerrados?", ephemeral: true });
+                return interaction.reply({ content: "❌ No pude enviarte el DM. ¿Tienes los mensajes directos cerrados?", flags: MessageFlags.Ephemeral });
             }
         }
 
         // Standard checks for other controls
         if (!member.voice.channel) {
-            return interaction.reply({ content: "❌ Entra a un canal de voz.", ephemeral: true });
+            return interaction.reply({ content: "❌ Entra a un canal de voz.", flags: MessageFlags.Ephemeral });
         }
 
         if (!player) {
-            return interaction.reply({ content: "❌ No hay sesión de música activa.", ephemeral: true });
+            return interaction.reply({ content: "❌ No hay sesión de música activa.", flags: MessageFlags.Ephemeral });
         }
 
         if (member.voice.channel.id !== player.voiceId) {
-            return interaction.reply({ content: "❌ Debes estar en mi mismo canal.", ephemeral: true });
+            return interaction.reply({ content: "❌ Debes estar en mi mismo canal.", flags: MessageFlags.Ephemeral });
         }
 
         const safeReply = async (content, ephemeral = true) => {
+            const flags = ephemeral ? MessageFlags.Ephemeral : undefined;
             if (interaction.replied || interaction.deferred) {
-                return interaction.followUp({ content, ephemeral }).catch(() => { });
+                return interaction.followUp({ content, flags }).catch(() => { });
             }
-            return interaction.reply({ content, ephemeral }).catch(() => { });
+            return interaction.reply({ content, flags }).catch(() => { });
         };
 
         const action = interaction.customId.replace("music_", "");
@@ -59,7 +60,7 @@ module.exports = {
                 case "pause":
                     player.pause(!player.paused);
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ content: player.paused ? "⏸️ Pausado" : "▶️ Reanudado", ephemeral: true });
+                        await interaction.followUp({ content: player.paused ? "⏸️ Pausado" : "▶️ Reanudado", flags: MessageFlags.Ephemeral });
                     } else {
                         await interaction.update({ components: interaction.message.components }).catch(() => { });
                     }
@@ -115,14 +116,47 @@ module.exports = {
                         .setDescription(tracks || "Cola vacía...");
 
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ embeds: [embed], ephemeral: true }).catch(() => { });
+                        await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => { });
                     } else {
-                        await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => { });
+                        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => { });
                     }
                     break;
 
-                case "filters":
-                    await safeReply("🎛️ Usa el comando `/filters` para ajustar el audio.");
+                case "autoplay":
+                    player.data = player.data || {};
+                    player.data.autoplay = !player.data.autoplay;
+                    const autoplayState = player.data.autoplay;
+
+                    // Actualizar el botón visualmente (verde = ON, gris = OFF)
+                    try {
+                        const rows = interaction.message.components.map(row => {
+                            const newRow = new ActionRowBuilder();
+                            newRow.addComponents(
+                                row.components.map(btn => {
+                                    const newBtn = ButtonBuilder.from(btn);
+                                    if (btn.customId === "music_autoplay") {
+                                        newBtn.setStyle(autoplayState ? ButtonStyle.Success : ButtonStyle.Secondary);
+                                    }
+                                    return newBtn;
+                                })
+                            );
+                            return newRow;
+                        });
+
+                        // Actualizar también el footer del embed
+                        const embeds = interaction.message.embeds.map(e => {
+                            const newEmbed = EmbedBuilder.from(e);
+                            const footerText = e.footer?.text || '';
+                            const newFooter = footerText.replace(/Autoplay: (ON|OFF)/, `Autoplay: ${autoplayState ? 'ON' : 'OFF'}`);
+                            newEmbed.setFooter({ text: newFooter });
+                            return newEmbed;
+                        });
+
+                        await interaction.update({ embeds, components: rows });
+                    } catch (e) {
+                        // Fallback si falla el update visual
+                        await safeReply(`♾️ Autoplay: **${autoplayState ? 'Activado' : 'Desactivado'}**`);
+                    }
                     break;
             }
         } catch (error) {

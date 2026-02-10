@@ -52,7 +52,7 @@ module.exports = {
             👤 **Pedido por:** <@${track.requester.id}>
             `)
             .setImage(track.thumbnail || null)
-            .setFooter({ text: `Vol: ${player.volume}% • Loop: ${player.loop || 'Off'}` });
+            .setFooter({ text: `Vol: ${player.volume}% • Loop: ${player.loop || 'Off'} • Autoplay: ${player.data?.autoplay ? 'ON' : 'OFF'}` });
 
         // --- BOTONES: Minimalismo "Dark Mode" ---
         // Todos los botones en GRIS OSCURO (Secondary) para máximo contraste con los emojis de colores.
@@ -66,19 +66,25 @@ module.exports = {
             new ButtonBuilder().setCustomId("music_shuffle").setEmoji("🔀").setStyle(ButtonStyle.Secondary)
         );
 
+        const isAutoplayOn = player.data?.autoplay === true;
+
         const row2 = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId("music_voldown").setEmoji("🔉").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("music_stop").setEmoji("⏹️").setStyle(ButtonStyle.Danger), // Stop en Rojo para emergencias
+            new ButtonBuilder().setCustomId("music_stop").setEmoji("⏹️").setStyle(ButtonStyle.Danger),
             new ButtonBuilder().setCustomId("music_volup").setEmoji("🔊").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("music_save").setLabel("Guardar").setEmoji("❤️").setStyle(ButtonStyle.Secondary), // Gris con Corazón Rojo (¡Alto Contraste!)
+            new ButtonBuilder().setCustomId("music_autoplay").setEmoji("♾️").setStyle(isAutoplayOn ? ButtonStyle.Success : ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId("music_queue").setEmoji("📜").setStyle(ButtonStyle.Secondary)
+        );
+
+        const row3 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("music_save").setLabel("Guardar").setEmoji("❤️").setStyle(ButtonStyle.Secondary)
         );
 
         try {
             const message = await channel.send({
                 content: `**💿 Reproduciendo en** <#${player.voiceId}>`,
                 embeds: [embed],
-                components: [row1, row2]
+                components: [row1, row2, row3]
             });
             player.nowPlayingMessage = message;
         } catch (error) {

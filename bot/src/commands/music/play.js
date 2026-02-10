@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, PermissionFlagsBits, MessageFlags } = require("discord.js");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -64,7 +64,7 @@ module.exports = {
         if (!member.voice.channel) {
             return interaction.reply({
                 content: `${client.config.emojis.error} **Debes estar en un canal de voz.**`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -72,7 +72,7 @@ module.exports = {
         if (botVoiceChannel && member.voice.channel.id !== botVoiceChannel.id) {
             return interaction.reply({
                 content: `${client.config.emojis.error} **Ya estoy en otro canal de voz:** ${botVoiceChannel.name}`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -81,7 +81,7 @@ module.exports = {
             !member.voice.channel.permissionsFor(guild.members.me).has(PermissionFlagsBits.Speak)) {
             return interaction.reply({
                 content: `${client.config.emojis.error} **No tengo permisos para unirme o hablar en tu canal.**`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -103,7 +103,7 @@ module.exports = {
             // 3. Activar Autoplay por defecto si no lo está
             // Guardamos preferencia en el player (metadata)
             player.data = player.data || {};
-            player.data.autoplay = true;
+            // player.data.autoplay = true; // Desactivado por defecto
 
             // 4. Realizar la búsqueda
             // Detectar si es URL para ajustar el motor de búsqueda
