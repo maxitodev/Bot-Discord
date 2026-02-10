@@ -1,10 +1,8 @@
-# 🎵 Optimización de Audio - Solución de Lag y Velocidad
+# 🎵 Optimización de Audio - Guía de Referencia
 
-## 🔧 Cambios Realizados
+## 🔧 Configuración del Bot (`config.js`)
 
-### **1. Configuración del Bot (`config.js`)**
-
-Se agregó una nueva sección `audioSettings` con configuraciones optimizadas:
+El bot incluye ajustes de audio optimizados en la sección `audioSettings`:
 
 ```javascript
 audioSettings: {
@@ -19,15 +17,6 @@ audioSettings: {
 }
 ```
 
-### **2. Configuración de Lavalink (`application.yml`)**
-
-Optimizaciones clave:
-
-- ✅ **Buffer reducido**: De 10000ms a 400ms (más responsive)
-- ✅ **Frame buffer optimizado**: De 30000ms a 5000ms
-- ✅ **Track stuck threshold**: De 30s a 10s (detecta problemas más rápido)
-- ✅ **GC warnings desactivados**: Menos ruido en logs
-
 ---
 
 ## 🎯 Problemas Comunes y Soluciones
@@ -35,231 +24,101 @@ Optimizaciones clave:
 ### **Problema 1: Música muy rápida o muy lenta**
 
 **Causas:**
-- Buffer demasiado grande o pequeño
+- Latencia de red variable con el servidor Lavalink
 - Problemas de sincronización de audio
-- Latencia de red variable
 
-**Soluciones:**
-
-#### **Opción A: Ajustar Buffer (Ya implementado)**
-Los valores actuales (400ms buffer) son óptimos para la mayoría de casos.
-
-#### **Opción B: Si persiste, aumentar buffer**
-En `application.yml`, cambiar:
-```yaml
-bufferDurationMs: 400      # Cambiar a 800 o 1000 si hay lag
-frameBufferDurationMs: 5000 # Cambiar a 8000 si hay cortes
+**Solución:**
+Verifica la latencia a tu servidor Lavalink:
+```bash
+ping lavalinkv4.serenetia.com
 ```
 
-#### **Opción C: Cambiar servidor Lavalink**
-Si usas servidor público, considera:
-1. **Usar Lavalink local** (mejor control)
-2. **Cambiar a otro servidor público** con mejor latencia
+**Resultados:**
+- ✅ **<50ms**: Excelente
+- ⚠️ **50-100ms**: Bueno (puede haber lag ocasional)
+- ❌ **>100ms**: Considera cambiar a otro servidor Lavalink público con mejor latencia
 
 ---
 
 ### **Problema 2: Cortes o pausas frecuentes**
 
 **Causas:**
-- Buffer muy pequeño
-- Conexión inestable
+- Conexión inestable al servidor Lavalink
 - Servidor Lavalink sobrecargado
 
 **Soluciones:**
-
-#### **Aumentar buffers:**
-```yaml
-bufferDurationMs: 1000          # Aumentar a 1 segundo
-frameBufferDurationMs: 10000    # Aumentar a 10 segundos
-```
-
-#### **Verificar conexión:**
-```bash
-# Hacer ping al servidor Lavalink
-ping lavalinkv4.serenetia.com
-```
+1. Verifica tu conexión a internet
+2. Si el problema persiste, prueba otro servidor Lavalink público
+3. El bot tiene un sistema de pre-buffer que pausa brevemente al inicio de cada canción para llenar el buffer y evitar cortes
 
 ---
 
 ### **Problema 3: Lag al inicio de canciones**
 
 **Causas:**
-- Tiempo de carga de YouTube
+- Tiempo de carga desde YouTube
 - Buffer inicial insuficiente
 
-**Soluciones:**
-
-#### **Aumentar frame buffer:**
-```yaml
-frameBufferDurationMs: 8000  # 8 segundos de pre-buffer
-```
-
-#### **Activar pre-loading (si disponible):**
-En el futuro, implementar pre-carga de la siguiente canción.
+**Solución:**
+El bot implementa un sistema de pre-buffering automático:
+- Primera canción: 2.5s de pre-buffer
+- Canciones siguientes: 1.5s de pre-buffer
 
 ---
 
-## 📊 Configuraciones Recomendadas por Escenario
+## 💡 Recomendaciones
 
-### **🌐 Conexión Excelente (Fibra óptica, <20ms ping)**
-```yaml
-bufferDurationMs: 400
-frameBufferDurationMs: 3000
-trackStuckThresholdMs: 8000
-```
-
-### **📡 Conexión Buena (Cable, 20-50ms ping)**
-```yaml
-bufferDurationMs: 600
-frameBufferDurationMs: 5000
-trackStuckThresholdMs: 10000
-```
-
-### **📶 Conexión Regular (WiFi, 50-100ms ping)**
-```yaml
-bufferDurationMs: 1000
-frameBufferDurationMs: 8000
-trackStuckThresholdMs: 12000
-```
-
-### **🐌 Conexión Lenta (>100ms ping)**
-```yaml
-bufferDurationMs: 1500
-frameBufferDurationMs: 12000
-trackStuckThresholdMs: 15000
-```
-
----
-
-## 🚀 Cómo Aplicar los Cambios
-
-### **Si usas Lavalink Público (Actual):**
-
-1. Los cambios en `config.js` ya están aplicados
-2. **Reinicia el bot**:
-   ```bash
-   # Detener el bot (Ctrl+C)
-   npm start
-   ```
-3. Los cambios se aplicarán automáticamente
-
-### **Si usas Lavalink Local:**
-
-1. **Detener Lavalink** (Ctrl+C en la terminal de Lavalink)
-2. **Reiniciar Lavalink**:
-   ```bash
-   java -jar Lavalink.jar
-   ```
-3. **Reiniciar el bot**:
-   ```bash
-   npm start
-   ```
-
----
-
-## 🔍 Diagnóstico de Problemas
-
-### **Verificar latencia al servidor Lavalink:**
-
-```bash
-# Windows
-ping lavalinkv4.serenetia.com
-
-# Linux/Mac
-ping -c 10 lavalinkv4.serenetia.com
-```
-
-**Resultados:**
-- ✅ **<50ms**: Excelente
-- ⚠️ **50-100ms**: Bueno (puede haber lag ocasional)
-- ❌ **>100ms**: Considera cambiar servidor o usar Lavalink local
-
----
-
-## 💡 Recomendaciones Adicionales
-
-### **1. Usar Lavalink Local (Mejor opción)**
-
-**Ventajas:**
-- ✅ Latencia mínima (localhost)
-- ✅ Control total sobre configuración
-- ✅ Sin dependencia de servidores externos
-- ✅ Mejor calidad de audio
-
-**Cómo cambiar:**
-
-En `bot/src/config.js`:
-```javascript
-nodes: [
-    {
-        name: "Local Lavalink",
-        url: "localhost:2333",
-        auth: "tuPasswordSegura",
-        secure: false
-    }
-]
-```
-
-### **2. Optimizar Discord Voice**
+### **1. Optimizar Discord Voice**
 
 En Discord (configuración de voz):
 - ✅ Activar **"Calidad de servicio de alta prioridad"**
 - ✅ Desactivar **"Procesamiento automático de ganancia"**
 - ✅ Usar **"Modo Push-to-Talk"** si hay ruido de fondo
 
-### **3. Monitorear Uso de CPU/RAM**
+### **2. Cambiar Servidor Lavalink**
 
-Si el servidor está sobrecargado:
-- Reducir `opusEncodingQuality` a 8 o 7
-- Aumentar `playerUpdateInterval` a 10
+Si experimentas problemas de calidad, puedes cambiar el servidor en `bot/src/config.js`:
+
+```javascript
+nodes: [
+    {
+        host: "tu-servidor-lavalink.com",
+        port: 443,
+        password: "tu_password",
+        secure: true
+    }
+]
+```
+
+> Busca servidores Lavalink públicos actualizados en comunidades de Discord.
 
 ---
 
-## 📝 Valores Actuales (Optimizados)
+## 📊 Valores Actuales (Optimizados)
 
-```yaml
-✅ bufferDurationMs: 400ms          # Óptimo para la mayoría
-✅ frameBufferDurationMs: 5000ms    # 5 segundos de buffer
-✅ opusEncodingQuality: 10          # Máxima calidad
-✅ trackStuckThresholdMs: 10000ms   # Detección rápida
-✅ resamplingQuality: HIGH          # Alta calidad
-✅ useSeekGhosting: true            # Seeking mejorado
+```
+✅ bufferDuration: 400ms           → Óptimo para la mayoría
+✅ frameBufferDuration: 5000ms     → 5 segundos de buffer
+✅ opusQuality: 10                 → Máxima calidad
+✅ trackStuckThreshold: 10000ms    → Detección rápida
+✅ resamplingQuality: HIGH         → Alta calidad
+✅ useSeekGhosting: true           → Seeking mejorado
 ```
 
 ---
 
 ## 🧪 Pruebas Recomendadas
 
-Después de aplicar los cambios:
+Después de cualquier cambio:
 
 1. **Reproducir una canción corta** (2-3 min)
 2. **Verificar que no haya lag** al inicio
 3. **Probar skip/seek** para verificar responsividad
 4. **Reproducir playlist** para verificar transiciones
-5. **Ajustar buffers** si es necesario según resultados
-
----
-
-## ❓ Preguntas Frecuentes
-
-### **¿Por qué reducir el buffer de 10s a 400ms?**
-Un buffer muy grande causa:
-- Lag al pausar/reanudar
-- Delay en comandos (skip, seek)
-- Música "acelerada" al recuperarse de lag
-
-### **¿Qué es frameBufferDuration?**
-Es el buffer de frames de audio pre-cargados. 5 segundos es suficiente para evitar cortes sin causar lag.
-
-### **¿Debo usar Lavalink local o público?**
-- **Local**: Mejor rendimiento, requiere Java y configuración
-- **Público**: Más fácil, pero puede tener lag según ubicación
 
 ---
 
 ## 🎯 Resultado Esperado
-
-Después de aplicar estos cambios:
 
 ✅ **Sin lag** al inicio de canciones
 ✅ **Velocidad constante** (no rápida ni lenta)
@@ -270,5 +129,5 @@ Después de aplicar estos cambios:
 ---
 
 **Estado:** ✅ Optimizado
-**Última actualización:** 2026-02-03
+**Última actualización:** 2026-02-09
 **Desarrollador:** MaxitoDev

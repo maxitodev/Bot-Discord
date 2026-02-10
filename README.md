@@ -6,8 +6,9 @@
 
 ### 🎵 Música de Alta Calidad
 *   Reproducción desde YouTube, Spotify y SoundCloud.
-*   **Autoplay Inteligente**: La música nunca se detiene.
+*   **Autoplay Inteligente**: Actívalo con el botón ♾️ para que la música nunca se detenga.
 *   **Filtros de Audio**: Bassboost, Nightcore, Vaporwave y más.
+*   **Controles Interactivos**: Botones en el reproductor para pausar, saltar, repetir, mezclar y más.
 *   Control total: `/play`, `/skip`, `/lyrics`, `/queue`.
 
 ### 🎮 Monitor de Minecraft
@@ -63,18 +64,20 @@
 ## 🛠️ Instalación y Requisitos
 
 1.  **Node.js v16+** requerido.
-2.  **Lavalink**: Necesario para la música (incluido en `application.yml`).
-3.  **Configuración**:
-    *   Renombra `.env.example` a `.env` y pon tu Token.
-    *   Configura `config.js` con tus colores y emojis.
+2.  **Configuración**:
+    *   Renombra `.env.example` a `.env` y pon tu Token de Discord.
+    *   Configura `bot/src/config.js` con tu nodo Lavalink externo, colores y emojis.
 
 ```bash
 # Instalar dependencias
+cd bot
 npm install
 
 # Iniciar el bot
 npm start
 ```
+
+> **Nota:** El bot usa un servidor Lavalink externo para la reproducción de música. No necesitas instalar ni configurar Lavalink localmente.
 
 ## 📝 Créditos
 Desarrollado con ❤️ y mucho café por **MaxitoDev**.
