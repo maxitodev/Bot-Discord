@@ -7,7 +7,7 @@ module.exports = {
     nodes: [
         {
             host: "localhost",
-            port: 443,
+            port: 2333,
             password: "maxitodev",
             secure: false
         }
