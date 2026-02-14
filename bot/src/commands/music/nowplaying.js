@@ -1,6 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const { formatDuration, createProgressBar } = require("../../utils/formatDuration");
 
+const SPOTIFY_COLOR = 0x1DB954;
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("nowplaying")
@@ -26,50 +28,57 @@ module.exports = {
         const position = player.shoukaku.position;
         const duration = track.length;
 
+        // Detect source
+        const isSpotify = track.sourceName === 'spotify' || (track.uri && track.uri.includes('spotify.com'));
+        const isSoundCloud = track.sourceName === 'soundcloud';
+        const sourceIcon = isSpotify ? '🟢' : isSoundCloud ? '🟠' : '🔴';
+        const sourceName = isSpotify ? 'Spotify' : isSoundCloud ? 'SoundCloud' : track.sourceName || 'Desconocida';
+        const embedColor = isSpotify ? SPOTIFY_COLOR : client.config.colors.music;
+
         // Create progress bar
-        const progressBar = track.isStream 
-            ? "🔴 EN VIVO" 
+        const progressBar = track.isStream
+            ? "🔴 EN VIVO"
             : `${formatDuration(position)} ${createProgressBar(position, duration)} ${formatDuration(duration)}`;
 
         const embed = new EmbedBuilder()
-            .setColor(client.config.colors.music)
-            .setAuthor({ 
-                name: player.paused ? "⏸️ Pausado" : "🎵 Reproduciendo ahora",
-                iconURL: client.user.displayAvatarURL()
+            .setColor(embedColor)
+            .setAuthor({
+                name: player.paused ? "⏸️ Pausado" : `${sourceIcon} Reproduciendo ahora`,
+                iconURL: isSpotify ? 'https://i.imgur.com/qvdqySa.png' : client.user.displayAvatarURL()
             })
             .setTitle(track.title)
             .setURL(track.uri)
             .setThumbnail(track.artworkUrl || track.thumbnail || null)
             .setDescription(`\n${progressBar}\n`)
             .addFields(
-                { 
-                    name: "👤 Artista", 
-                    value: track.author || "Desconocido", 
-                    inline: true 
+                {
+                    name: "👤 Artista",
+                    value: track.author || "Desconocido",
+                    inline: true
                 },
-                { 
-                    name: "🔊 Volumen", 
-                    value: `${Math.round(player.volume * 100)}%`, 
-                    inline: true 
+                {
+                    name: "🔊 Volumen",
+                    value: `${Math.round(player.volume * 100)}%`,
+                    inline: true
                 },
-                { 
-                    name: "🔁 Loop", 
-                    value: player.loop === "track" ? "🔂 Canción" : player.loop === "queue" ? "🔁 Cola" : "Desactivado", 
-                    inline: true 
+                {
+                    name: "🔁 Loop",
+                    value: player.loop === "track" ? "🔂 Canción" : player.loop === "queue" ? "🔁 Cola" : "Desactivado",
+                    inline: true
                 },
-                { 
-                    name: "📜 En cola", 
-                    value: `${player.queue.length} canciones`, 
-                    inline: true 
+                {
+                    name: "📜 En cola",
+                    value: `${player.queue.length} canciones`,
+                    inline: true
                 },
-                { 
-                    name: "🎧 Solicitado por", 
-                    value: track.requester ? `<@${track.requester.id}>` : "Desconocido", 
-                    inline: true 
+                {
+                    name: "🎧 Solicitado por",
+                    value: track.requester ? `<@${track.requester.id}>` : "Desconocido",
+                    inline: true
                 }
             )
-            .setFooter({ 
-                text: `Fuente: ${track.sourceName || "Desconocida"}` 
+            .setFooter({
+                text: `${sourceIcon} Fuente: ${sourceName}`
             })
             .setTimestamp();
 

@@ -3,12 +3,22 @@ module.exports = {
     token: process.env.DISCORD_TOKEN,
     clientId: process.env.CLIENT_ID,
 
+    // Spotify Configuration
+    spotify: {
+        clientId: process.env.SPOTIFY_CLIENT_ID,
+        clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+        playlistPageLimit: 3,       // 100 tracks per page (up to 300 tracks)
+        albumPageLimit: 2,          // 50 tracks per page (up to 100 tracks)
+        searchLimit: 10,            // Max search results
+        searchMarket: 'MX',        // Mexico market for regional content
+    },
+
     // Lavalink Configuration
     nodes: [
         {
-            host: "lavalinkv4.serenetia.com",
+            host: "lavalink.jirayu.net",
             port: 443,
-            password: "https://dsc.gg/ajidevserver",
+            password: "youshallnotpass",
             secure: true
         }
     ],
@@ -66,6 +76,7 @@ module.exports = {
         success: "✅",
         error: "❌",
         warning: "⚠️",
-        autoplay: "♾️"
+        autoplay: "♾️",
+        spotify: "🟢"
     }
 };

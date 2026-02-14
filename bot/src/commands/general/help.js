@@ -6,55 +6,56 @@ module.exports = {
         .setDescription("📚 Muestra la lista de comandos disponibles"),
 
     async execute(interaction, client) {
-        // Safe color access
         const color = (client.config && client.config.colors && client.config.colors.main)
             ? client.config.colors.main
             : 0x0099ff;
 
-        const musicCommands = [
-            { name: "/play", description: "Reproduce una canción o playlist" },
-            { name: "/stop", description: "Detiene la música y limpia la cola" },
-            { name: "/skip", description: "Salta la canción actual" },
-            { name: "/skipto", description: "Salta a una canción específica en la cola" },
-            { name: "/pause", description: "Pausa/Reanuda la reproducción" },
-            { name: "/queue", description: "Muestra la cola de reproducción" },
-            { name: "/volume", description: "Ajusta el volumen (0-150)" },
-            { name: "/lyrics", description: "Muestra la letra de la canción" },
-            { name: "/shuffle", description: "Mezcla la cola aleatoriamente" },
-            { name: "/loop", description: "Cambia el modo de repetición" },
-            { name: "/nowplaying", description: "Muestra la canción actual" }
-        ];
-
-        const memeCommands = [
-            { name: "/meme", description: "Obtiene un meme aleatorio de Reddit" }
-        ];
-
-        const generalCommands = [
-            { name: "/help", description: "Muestra este mensaje de ayuda" },
-            { name: "/ping", description: "Muestra la latencia del bot" }
-        ];
-
         const embed = new EmbedBuilder()
             .setColor(color)
-            .setTitle("🎵 Comandos del Bot")
-            .setDescription("Aquí tienes la lista de comandos disponibles para todos los usuarios.")
+            .setTitle("📖 Comandos del Bot")
+            .setDescription("Todos los comandos disponibles organizados por categoría.")
             .addFields(
                 {
-                    name: "🎶 Música",
-                    value: musicCommands.map(cmd => `**${cmd.name}** - ${cmd.description}`).join("\n")
+                    name: "🎵 Música",
+                    value: [
+                        "**/play** `<canción o URL>` — Reproduce (Spotify, YouTube, SoundCloud)",
+                        "**/spotify buscar** `<query>` — Busca directo en Spotify",
+                        "**/spotify playlist** `<url>` — Carga playlist de Spotify",
+                        "**/spotify album** `<url>` — Carga álbum de Spotify",
+                        "**/spotify artista** `<url>` — Top tracks de un artista",
+                        "**/skip** — Salta canción",
+                        "**/jump** `<posición>` — Salta a una canción en la cola",
+                        "**/pause** · **/resume** — Pausa / Reanuda",
+                        "**/stop** — Detiene y desconecta",
+                    ].join("\n")
+                },
+                {
+                    name: "📜 Cola y Reproducción",
+                    value: [
+                        "**/queue** — Muestra la cola",
+                        "**/nowplaying** — Info de la canción actual",
+                        "**/lyrics** `[busqueda]` — Letras de la canción",
+                        "**/shuffle** — Mezcla la cola",
+                        "**/loop** `<modo>` — Repetir (off / canción / cola)",
+                        "**/volume** `<0-150>` — Ajusta el volumen",
+                        "**/seek** `<tiempo>` — Salta a un punto",
+                        "**/filters** — Filtros de audio (bass, nightcore...)",
+                        "**/remove** `<posición>` — Quita canción de la cola",
+                        "**/clear** — Limpia toda la cola",
+                    ].join("\n")
                 },
                 {
                     name: "😂 Diversión",
-                    value: memeCommands.map(cmd => `**${cmd.name}** - ${cmd.description}`).join("\n")
+                    value: "**/meme** — Meme aleatorio de Reddit"
                 },
                 {
                     name: "ℹ️ General",
-                    value: generalCommands.map(cmd => `**${cmd.name}** - ${cmd.description}`).join("\n")
+                    value: "**/help** — Este mensaje\n**/ping** — Latencia del bot"
                 }
             )
             .setThumbnail(client.user.displayAvatarURL({ size: 256 }))
             .setFooter({
-                text: `Solicitado por ${interaction.user.tag}`,
+                text: `${interaction.user.tag} • Búsqueda por defecto: Spotify 🟢`,
                 iconURL: interaction.user.displayAvatarURL()
             })
             .setTimestamp();

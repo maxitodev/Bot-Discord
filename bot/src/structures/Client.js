@@ -1,6 +1,7 @@
 const { Client, Collection, GatewayIntentBits, Partials } = require("discord.js");
 const { Kazagumo } = require("kazagumo");
 const { Connectors } = require("shoukaku");
+const Spotify = require("kazagumo-spotify");
 const config = require("../config");
 const fs = require("fs");
 const path = require("path");
@@ -65,9 +66,28 @@ class MusicBot extends Client {
             return node;
         });
 
-        // Initialize Kazagumo Manager with Shoukaku
+        // Initialize Spotify Plugin
+        const spotifyPlugins = [];
+        if (config.spotify && config.spotify.clientId && config.spotify.clientSecret) {
+            spotifyPlugins.push(
+                new Spotify({
+                    clientId: config.spotify.clientId,
+                    clientSecret: config.spotify.clientSecret,
+                    playlistPageLimit: config.spotify.playlistPageLimit || 3,
+                    albumPageLimit: config.spotify.albumPageLimit || 2,
+                    searchLimit: config.spotify.searchLimit || 10,
+                    searchMarket: config.spotify.searchMarket || 'US',
+                })
+            );
+            console.log("🟢 Spotify plugin cargado correctamente");
+        } else {
+            console.warn("⚠️ Spotify credentials no encontradas. Spotify deshabilitado.");
+        }
+
+        // Initialize Kazagumo Manager with Shoukaku + Spotify
         this.manager = new Kazagumo({
-            defaultSearchEngine: "youtube",
+            defaultSearchEngine: "spotify",
+            plugins: spotifyPlugins,
             send: (guildId, payload) => {
                 const guild = this.guilds.cache.get(guildId);
                 if (guild) guild.shard.send(payload);

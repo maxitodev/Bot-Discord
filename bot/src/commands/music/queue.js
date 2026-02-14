@@ -58,7 +58,8 @@ module.exports = {
                     const position = start + index + 1;
                     const title = truncateText(track.title, 40);
                     const duration = track.isStream ? "🔴 LIVE" : formatDuration(track.length);
-                    return `\`${position}.\` [${title}](${track.uri}) - \`${duration}\``;
+                    const sourceIcon = track.sourceName === 'spotify' ? '🟢' : track.sourceName === 'soundcloud' ? '🟠' : '🔴';
+                    return `\`${position}.\` ${sourceIcon} [${title}](${track.uri}) - \`${duration}\``;
                 })
                 .join("\n");
         } else {
@@ -70,9 +71,9 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(client.config.colors.music)
-            .setAuthor({ 
-                name: `Cola de ${guild.name}`, 
-                iconURL: guild.iconURL() 
+            .setAuthor({
+                name: `Cola de ${guild.name}`,
+                iconURL: guild.iconURL()
             })
             .setDescription(
                 `**${client.config.emojis.music} Reproduciendo ahora:**\n` +
@@ -81,20 +82,20 @@ module.exports = {
                 `**${client.config.emojis.queue} Cola (${queue.length} canciones):**\n${queueList}`
             )
             .addFields(
-                { 
-                    name: "⏱️ Duración total", 
-                    value: formatDuration(totalDuration), 
-                    inline: true 
+                {
+                    name: "⏱️ Duración total",
+                    value: formatDuration(totalDuration),
+                    inline: true
                 },
-                { 
-                    name: "🔊 Volumen", 
-                    value: `${Math.round(player.volume * 100)}%`, 
-                    inline: true 
+                {
+                    name: "🔊 Volumen",
+                    value: `${Math.round(player.volume * 100)}%`,
+                    inline: true
                 },
-                { 
-                    name: "🔁 Loop", 
-                    value: player.loop === "track" ? "Canción" : player.loop === "queue" ? "Cola" : "Desactivado", 
-                    inline: true 
+                {
+                    name: "🔁 Loop",
+                    value: player.loop === "track" ? "Canción" : player.loop === "queue" ? "Cola" : "Desactivado",
+                    inline: true
                 }
             )
             .setFooter({ text: `Página ${page} de ${totalPages} • ${queue.length} canciones en cola` })

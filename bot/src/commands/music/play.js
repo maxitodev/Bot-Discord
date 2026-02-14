@@ -1,5 +1,32 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, PermissionFlagsBits, MessageFlags } = require("discord.js");
 
+// Helper to detect Spotify URLs
+function isSpotifyUrl(url) {
+    return /^https?:\/\/(open\.)?spotify\.com\/(track|playlist|album|artist)\//i.test(url) ||
+        /^https?:\/\/spotify\.link\//i.test(url);
+}
+
+// Helper to get Spotify source type from URL
+function getSpotifyType(url) {
+    if (/\/track\//i.test(url)) return 'track';
+    if (/\/playlist\//i.test(url)) return 'playlist';
+    if (/\/album\//i.test(url)) return 'album';
+    if (/\/artist\//i.test(url)) return 'artist';
+    return 'unknown';
+}
+
+// Spotify-themed embed color
+const SPOTIFY_COLOR = 0x1DB954;
+
+// Helper to get source label from a track
+function getTrackSourceLabel(track) {
+    if (!track) return '🔴 YouTube';
+    const src = track.sourceName?.toLowerCase() || '';
+    if (src === 'spotify') return '🟢 Spotify';
+    if (src === 'soundcloud') return '🟠 SoundCloud';
+    return '🔴 YouTube';
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("play")
@@ -7,9 +34,20 @@ module.exports = {
         .addStringOption(option =>
             option
                 .setName("busqueda")
-                .setDescription("Nombre de la canción o URL")
+                .setDescription("Nombre de la canción, URL de YouTube/Spotify/SoundCloud")
                 .setRequired(true)
-                .setAutocomplete(true) // Reactivamos autocomplete
+                .setAutocomplete(true)
+        )
+        .addStringOption(option =>
+            option
+                .setName("fuente")
+                .setDescription("Motor de búsqueda preferido (solo para texto, no URLs)")
+                .setRequired(false)
+                .addChoices(
+                    { name: '🔴 YouTube', value: 'youtube' },
+                    { name: '🟢 Spotify', value: 'spotify' },
+                    { name: '🟠 SoundCloud', value: 'soundcloud' }
+                )
         ),
 
     async autocomplete(interaction, client) {
@@ -20,15 +58,26 @@ module.exports = {
             return interaction.respond([]);
         }
 
-        // Si es URL, sugerir reproducir directamente
+        // Si es URL de Spotify, sugerir reproducir directamente con ícono de Spotify
+        if (isSpotifyUrl(focusedValue)) {
+            const spotifyType = getSpotifyType(focusedValue);
+            const typeLabels = { track: 'Canción', playlist: 'Playlist', album: 'Álbum', artist: 'Artista' };
+            return interaction.respond([{
+                name: `🟢 Spotify ${typeLabels[spotifyType] || ''}: ${focusedValue.substring(0, 70)}`,
+                value: focusedValue
+            }]);
+        }
+
+        // Si es otra URL, sugerir reproducir directamente
         if (/^https?:\/\//.test(focusedValue)) {
             return interaction.respond([{ name: `🔗 Reproducir URL: ${focusedValue.substring(0, 80)}`, value: focusedValue }]);
         }
 
         try {
-            // Usamos search de youtube para autocomplete
-            // NOTA: Usamos 'youtube' explícitamente para asegurar resultados consistentes en autocomplete
-            const res = await client.manager.search(focusedValue, { engine: 'youtube', requester: interaction.user });
+            // Obtener el motor de búsqueda seleccionado
+            const selectedEngine = interaction.options.getString("fuente") || 'spotify';
+
+            const res = await client.manager.search(focusedValue, { engine: selectedEngine, requester: interaction.user });
 
             if (!res || !res.tracks || res.tracks.length === 0) {
                 return interaction.respond([{ name: `🔍 Buscar: "${focusedValue.substring(0, 80)}"`, value: focusedValue }]);
@@ -36,22 +85,25 @@ module.exports = {
 
             // Mapeamos los resultados para el autocomplete de Discord (max 25 opciones)
             const tracks = res.tracks.slice(0, 10).map(track => {
-                const title = track.title.length > 80 ? track.title.substring(0, 77) + "..." : track.title;
+                const artist = track.author || 'Desconocido';
                 const duration = track.isStream ? "LIVE" : new Date(track.length).toISOString().slice(14, 19);
+                const sourceIcon = track.sourceName === 'spotify' ? '🟢' : '🎵';
+                // Discord autocomplete limit: 100 chars per option name
+                const maxTitleLen = 95 - artist.length - duration.length - 6; // space for icon, " - ", " []"
+                const title = track.title.length > maxTitleLen ? track.title.substring(0, maxTitleLen - 3) + "..." : track.title;
                 return {
-                    name: `🎵 ${title} [${duration}]`,
-                    value: track.uri // Usamos la URI para que al seleccionar reproduzca directo
+                    name: `${sourceIcon} ${title} - ${artist} [${duration}]`.substring(0, 100),
+                    value: track.uri
                 };
             });
 
-            // Añadimos la opción de buscar texto exacto al final si no es URL
+            // Añadimos la opción de buscar texto exacto al final
             tracks.push({ name: `🔍 Buscar texto exacto: "${focusedValue.substring(0, 70)}"`, value: focusedValue });
 
             await interaction.respond(tracks);
 
         } catch (error) {
-            // Si falla, solo devolvemos lo que escribió el usuario
-            console.error("Error en autocomplete:", error); // Log para debug
+            console.error("Error en autocomplete:", error);
             await interaction.respond([{ name: `🔍 Buscar: "${focusedValue.substring(0, 80)}"`, value: focusedValue }]).catch(() => { });
         }
     },
@@ -59,6 +111,7 @@ module.exports = {
     async execute(interaction, client) {
         const { options, member, guild, channel } = interaction;
         const query = options.getString("busqueda");
+        const preferredEngine = options.getString("fuente"); // youtube, spotify, soundcloud o null
 
         // 1. Validaciones iniciales
         if (!member.voice.channel) {
@@ -100,17 +153,25 @@ module.exports = {
                 });
             }
 
-            // 3. Activar Autoplay por defecto si no lo está
-            // Guardamos preferencia en el player (metadata)
+            // 3. Metadata del player
             player.data = player.data || {};
-            // player.data.autoplay = true; // Desactivado por defecto
 
-            // 4. Realizar la búsqueda
-            // Detectar si es URL para ajustar el motor de búsqueda
+            // 4. Detectar tipo de fuente y búsqueda
             const isUrl = /^https?:\/\//.test(query);
-            const searchEngine = isUrl ? undefined : 'youtube'; // Si es texto, forzar youtube
+            const isSpotify = isSpotifyUrl(query);
 
-            console.log(`🔍 Buscando: ${query} (Engine: ${searchEngine || 'auto'})`);
+            // Determinar motor de búsqueda
+            let searchEngine;
+            if (isUrl) {
+                searchEngine = undefined; // Auto-detect para URLs
+            } else if (preferredEngine) {
+                searchEngine = preferredEngine; // Usar el motor seleccionado por el usuario
+            } else {
+                searchEngine = 'spotify'; // Default: Spotify para mejores resultados
+            }
+
+            // sourceLabel se determinará dinámicamente según el track real
+            console.log(`🔍 Buscando: ${query} (Engine: ${searchEngine || 'auto'} | Spotify URL: ${isSpotify})`);
 
             const res = await client.manager.search(query, {
                 requester: member.user,
@@ -130,49 +191,75 @@ module.exports = {
                 });
             }
 
-            // 6. Manejar Playlist
+            // 6. Determinar color del embed según fuente
+            const isResSpotify = isSpotify || (res.tracks[0]?.sourceName === 'spotify');
+            const embedColor = isResSpotify ? SPOTIFY_COLOR : (client.config.colors.success || 0xFF0000);
+            const sourceLabel = isResSpotify ? '🟢 Spotify' : getTrackSourceLabel(res.tracks[0]);
+
+            // 7. Manejar Playlist / Álbum de Spotify
             if (res.type === 'PLAYLIST') {
                 for (const track of res.tracks) player.queue.add(track);
 
                 if (!player.playing && !player.paused) player.play();
 
+                const spotifyType = isSpotify ? getSpotifyType(query) : null;
+                const typeLabel = spotifyType === 'album' ? '💿 Álbum' :
+                    spotifyType === 'artist' ? '👤 Artista' :
+                        spotifyType === 'playlist' ? '📋 Playlist' : '📋 Playlist';
+                const icon = isSpotify ? '🟢' : '✅';
+
                 const playlistEmbed = new EmbedBuilder()
-                    .setColor(client.config.colors.success || 0xFF0000)
-                    .setDescription(`✅ **Playlist cargada:** [${res.playlistName}](${query}) (${res.tracks.length} canciones)`)
-                    .setFooter({ text: `Solicitado por ${member.user.tag}` });
+                    .setColor(embedColor)
+                    .setAuthor({
+                        name: isSpotify ? 'Spotify' : 'Playlist',
+                        iconURL: isSpotify ? 'https://i.imgur.com/qvdqySa.png' : client.user.displayAvatarURL()
+                    })
+                    .setDescription(`${icon} **${typeLabel} cargada:** [${res.playlistName}](${query})\n\n🎵 **${res.tracks.length}** canciones añadidas a la cola`)
+                    .setFooter({ text: `Solicitado por ${member.user.tag} • ${sourceLabel}` })
+                    .setTimestamp();
 
                 return interaction.editReply({ embeds: [playlistEmbed] });
             }
 
-            // 7. Manejar Resultado Único (URL directa o selección de autocomplete) o Selección
-            // Si viene de autocomplete (es una URI directa o URL), o solo un resultado
+            // 8. Manejar Resultado Único (URL directa, selección de autocomplete)
             if (isUrl || res.tracks.length === 1 || query.startsWith('http')) {
                 const track = res.tracks[0];
                 player.queue.add(track);
                 if (!player.playing && !player.paused) player.play();
 
+                const isTrackSpotify = isSpotify || track.sourceName === 'spotify';
+                const trackColor = isTrackSpotify ? SPOTIFY_COLOR : (client.config.colors.success || 0xFF0000);
+                const trackLabel = getTrackSourceLabel(track);
+
                 const trackEmbed = new EmbedBuilder()
-                    .setColor(client.config.colors.success || 0xFF0000)
+                    .setColor(trackColor)
+                    .setAuthor({
+                        name: isTrackSpotify ? 'Spotify' : 'Añadido a la cola',
+                        iconURL: isTrackSpotify ? 'https://i.imgur.com/qvdqySa.png' : client.user.displayAvatarURL()
+                    })
                     .setDescription(`✅ **Añadido a la cola:** [${track.title}](${track.uri})`)
-                    .setFooter({ text: `Solicitado por ${member.user.tag}` });
+                    .addFields(
+                        { name: '👤 Artista', value: track.author || 'Desconocido', inline: true },
+                        { name: '⏱️ Duración', value: track.isStream ? '🔴 LIVE' : new Date(track.length).toISOString().slice(14, 19), inline: true }
+                    )
+                    .setThumbnail(track.artworkUrl || track.thumbnail || null)
+                    .setFooter({ text: `Solicitado por ${member.user.tag} • ${trackLabel}` });
 
                 return interaction.editReply({ embeds: [trackEmbed] });
             }
 
-            // 8. Manejar Selección Múltiple (Si es búsqueda de texto y NO URL)
-            // Esto pasa si el usuario ignora el autocomplete y da enter al texto "bad bunny"
+            // 9. Manejar Selección Múltiple (búsqueda de texto, NO URL)
             if (!isUrl && res.tracks.length > 1) {
-                // Tomar los primeros 10 resultados para el menú
                 const maxOptions = res.tracks.slice(0, 10);
 
-                const options = maxOptions.map((track, i) => {
-                    // Recortar títulos largos
+                const selectOptions = maxOptions.map((track, i) => {
                     const title = track.title.length > 90 ? track.title.substring(0, 87) + "..." : track.title;
                     const duration = track.isStream ? "LIVE" : new Date(track.length).toISOString().slice(14, 19);
+                    const sourceIcon = track.sourceName === 'spotify' ? '🟢' : '🎵';
 
                     return {
                         label: `${i + 1}. ${title}`,
-                        description: `Por: ${track.author} | ⏱️ ${duration}`,
+                        description: `Por: ${track.author} | ⏱️ ${duration} ${sourceIcon}`,
                         value: i.toString()
                     };
                 });
@@ -180,13 +267,16 @@ module.exports = {
                 const menu = new StringSelectMenuBuilder()
                     .setCustomId('search-select')
                     .setPlaceholder('👇 Selecciona una canción')
-                    .addOptions(options);
+                    .addOptions(selectOptions);
 
                 const row = new ActionRowBuilder().addComponents(menu);
 
                 const selectEmbed = new EmbedBuilder()
-                    .setColor(client.config.colors.music || client.config.colors.success || 0xFF0000)
-                    .setAuthor({ name: 'Resultados de búsqueda', iconURL: client.user.displayAvatarURL() })
+                    .setColor(searchEngine === 'spotify' ? SPOTIFY_COLOR : (client.config.colors.music || 0xFF0000))
+                    .setAuthor({
+                        name: `Resultados de búsqueda ${sourceLabel}`,
+                        iconURL: client.user.displayAvatarURL()
+                    })
                     .setDescription(`Encontré **${res.tracks.length}** resultados para \`${query}\`.\nSelecciona uno del menú de abajo.`)
                     .setFooter({ text: 'Tienes 30 segundos para elegir' });
 
@@ -202,7 +292,7 @@ module.exports = {
 
                 collector.on('collect', async i => {
                     try {
-                        await i.deferUpdate(); // Importante
+                        await i.deferUpdate();
 
                         const selectedIndex = parseInt(i.values[0]);
                         const track = res.tracks[selectedIndex];
@@ -210,12 +300,19 @@ module.exports = {
                         player.queue.add(track);
                         if (!player.playing && !player.paused) player.play();
 
+                        const isTrackSpotify = track.sourceName === 'spotify';
+                        const trackColor = isTrackSpotify ? SPOTIFY_COLOR : (client.config.colors.success || 0xFF0000);
+
                         const successEmbed = new EmbedBuilder()
-                            .setColor(client.config.colors.success || 0xFF0000)
+                            .setColor(trackColor)
+                            .setAuthor({
+                                name: isTrackSpotify ? 'Spotify' : 'Añadido a la cola',
+                                iconURL: isTrackSpotify ? 'https://i.imgur.com/qvdqySa.png' : client.user.displayAvatarURL()
+                            })
                             .setDescription(`✅ **Añadido a la cola:** [${track.title}](${track.uri})`)
+                            .setThumbnail(track.artworkUrl || track.thumbnail || null)
                             .setFooter({ text: `Solicitado por ${member.user.tag}` });
 
-                        // Editar el mensaje original eliminando el menú
                         await interaction.editReply({ embeds: [successEmbed], components: [] });
                     } catch (err) {
                         console.error("Error en collector:", err);
