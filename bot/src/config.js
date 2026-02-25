@@ -13,15 +13,35 @@ module.exports = {
         searchMarket: 'MX',        // Mexico market for regional content
     },
 
-    // Lavalink Configuration
+    // Lavalink Nodes Configuration (Multi-Node with Auto-Failover)
+    // Priority: lower number = higher priority (preferred node)
     nodes: [
         {
+            name: "Serenetia",
             host: "lavalinkv4.serenetia.com",
             port: 443,
             password: "https://dsc.gg/ajidevserver",
-            secure: true
+            secure: true,
+            priority: 1
+        },
+        {
+            name: "Jirayu",
+            host: "lavalink.jirayu.net",
+            port: 443,
+            password: "youshallnotpass",
+            secure: true,
+            priority: 2
         }
     ],
+
+    // Node Failover Settings
+    nodeFailover: {
+        enabled: true,                    // Auto-switch nodes on failure
+        healthCheckInterval: 30000,       // Health check every 30 seconds
+        maxReconnectAttempts: 3,          // Max reconnect attempts before switching
+        reconnectDelay: 5000,             // Delay between reconnect attempts (ms)
+        preferredNodeRecheck: 300000,     // Recheck preferred node every 5 minutes
+    },
 
     // Bot Settings
     defaultVolume: 80,
@@ -55,7 +75,8 @@ module.exports = {
         success: 0xFF0000,   // Red for success
         error: 0x550000,     // Dark Red
         warning: 0xFFA500,   // Orange
-        music: 0xFF0000      // Red
+        music: 0xFF0000,     // Red
+        node: 0x2B2D31       // Dark (Discord background) for node embeds
     },
 
     // Emojis (Standard)
@@ -77,6 +98,10 @@ module.exports = {
         error: "❌",
         warning: "⚠️",
         autoplay: "♾️",
-        spotify: "🟢"
+        spotify: "🟢",
+        node: "🌐",
+        nodeOnline: "🟢",
+        nodeOffline: "🔴",
+        nodeSwitch: "🔄"
     }
 };

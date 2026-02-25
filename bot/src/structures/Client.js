@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const AutoMemeSystem = require("../utils/AutoMemeSystem");
 const ConfigManager = require("../utils/ConfigManager");
+const NodeManager = require("../utils/NodeManager");
 
 class MusicBot extends Client {
     constructor() {
@@ -85,6 +86,7 @@ class MusicBot extends Client {
         }
 
         // Initialize Kazagumo Manager with Shoukaku + Spotify
+        const failoverConfig = config.nodeFailover || {};
         this.manager = new Kazagumo({
             defaultSearchEngine: "spotify",
             plugins: spotifyPlugins,
@@ -96,8 +98,22 @@ class MusicBot extends Client {
             moveOnDisconnect: false,
             resume: true,
             resumeTimeout: 30,
-            reconnectTries: 5,
+            reconnectTries: failoverConfig.maxReconnectAttempts || 5,
+            reconnectInterval: failoverConfig.reconnectDelay || 5000,
             restTimeout: 10000
+        });
+
+        // Initialize Node Manager (Multi-Node Failover)
+        this.nodeManager = new NodeManager(this);
+        this.nodeManager.start();
+
+        // Hook Shoukaku disconnect/close events into NodeManager
+        this.manager.shoukaku.on('disconnect', (name, players, moved) => {
+            this.nodeManager.onNodeDisconnect(name, 0, 'disconnect event');
+        });
+
+        this.manager.shoukaku.on('close', (name, code, reason) => {
+            this.nodeManager.onNodeDisconnect(name, code, reason);
         });
 
         this.loadCommands();
@@ -156,7 +172,8 @@ class MusicBot extends Client {
             if (event.name.startsWith("node")) {
                 const shoukakuEvent = event.name === "nodeConnect" ? "ready" :
                     event.name === "nodeError" ? "error" :
-                        event.name.replace("node", "").toLowerCase();
+                        event.name === "nodeDisconnect" ? "close" :
+                            event.name.replace("node", "").toLowerCase();
                 this.manager.shoukaku.on(shoukakuEvent, (...args) => event.execute(...args, this));
             } else {
                 this.manager.on(event.name, (...args) => event.execute(...args, this));
