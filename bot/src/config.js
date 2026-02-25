@@ -16,9 +16,9 @@ module.exports = {
     // Lavalink Configuration
     nodes: [
         {
-            host: "lavalink.jirayu.net",
+            host: "lavalinkv4.serenetia.com",
             port: 443,
-            password: "youshallnotpass",
+            password: "https://dsc.gg/ajidevserver",
             secure: true
         }
     ],
