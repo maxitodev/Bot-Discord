@@ -20,16 +20,7 @@ module.exports = {
             player.disconnectTimeout = null;
         }
 
-        // Pre-buffer: Pausar momentáneamente para que Lavalink llene el buffer
-        try {
-            await player.pause(true);
-            const bufferTime = player._firstTrackPlayed ? 1500 : 2500;
-            player._firstTrackPlayed = true;
-            await new Promise(resolve => setTimeout(resolve, bufferTime));
-            await player.pause(false);
-        } catch (e) {
-            console.warn("Pre-buffer skip:", e.message);
-        }
+
 
         // --- DETECT SOURCE ---
         const isSpotify = track.sourceName === 'spotify' ||

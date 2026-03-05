@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const AutoMemeSystem = require("../utils/AutoMemeSystem");
 const ConfigManager = require("../utils/ConfigManager");
-const NodeManager = require("../utils/NodeManager");
+
 
 class MusicBot extends Client {
     constructor() {
@@ -52,20 +52,33 @@ class MusicBot extends Client {
         this.newsSystem = new NewsSystem(this);
         this.newsSystem.start();
 
-        // Transform config.nodes to Shoukaku format
-        const nodes = config.nodes.map(node => {
-            // Check if using the custom "host/port/password" format
-            if (node.host) {
-                return {
-                    name: node.name || node.host,
-                    url: `${node.host}:${node.port}`,
-                    auth: node.password,
-                    secure: node.secure
-                };
-            }
-            // Return as is if already in Shoukaku format
-            return node;
-        });
+        // Build Lavalink nodes list (supports both config.nodes and legacy config.node)
+        const rawNodes = Array.isArray(config.nodes) && config.nodes.length
+            ? config.nodes
+            : (config.node ? [config.node] : []);
+
+        if (!rawNodes.length) {
+            throw new Error("No hay nodos Lavalink configurados en config.js");
+        }
+
+        this.lavalinkNodes = rawNodes.map((node, index) => ({
+            name: node.name || `node-${index + 1}`,
+            host: node.host,
+            port: node.port,
+            password: node.password,
+            secure: Boolean(node.secure)
+        }));
+
+        // Manual node selection per guild (no automatic failover)
+        this.defaultNodeName = this.lavalinkNodes[0].name;
+        this.guildNodeSelection = new Map();
+
+        const nodes = this.lavalinkNodes.map(node => ({
+            name: node.name,
+            url: `${node.host}:${node.port}`,
+            auth: node.password,
+            secure: node.secure
+        }));
 
         // Initialize Spotify Plugin
         const spotifyPlugins = [];
@@ -86,7 +99,6 @@ class MusicBot extends Client {
         }
 
         // Initialize Kazagumo Manager with Shoukaku + Spotify
-        const failoverConfig = config.nodeFailover || {};
         this.manager = new Kazagumo({
             defaultSearchEngine: "spotify",
             plugins: spotifyPlugins,
@@ -98,23 +110,13 @@ class MusicBot extends Client {
             moveOnDisconnect: false,
             resume: true,
             resumeTimeout: 30,
-            reconnectTries: failoverConfig.maxReconnectAttempts || 5,
-            reconnectInterval: failoverConfig.reconnectDelay || 5000,
+            reconnectTries: 5,
+            reconnectInterval: 5000,
             restTimeout: 10000
         });
 
-        // Initialize Node Manager (Multi-Node Failover)
-        this.nodeManager = new NodeManager(this);
-        this.nodeManager.start();
-
-        // Hook Shoukaku disconnect/close events into NodeManager
-        this.manager.shoukaku.on('disconnect', (name, players, moved) => {
-            this.nodeManager.onNodeDisconnect(name, 0, 'disconnect event');
-        });
-
-        this.manager.shoukaku.on('close', (name, code, reason) => {
-            this.nodeManager.onNodeDisconnect(name, code, reason);
-        });
+        console.log(`🌐 Nodos Lavalink cargados: ${this.lavalinkNodes.map(n => n.name).join(", ")}`);
+        console.log(`🎯 Nodo por defecto: ${this.defaultNodeName} (seleccion manual por servidor)`);
 
         this.loadCommands();
         this.loadEvents();
@@ -188,6 +190,90 @@ class MusicBot extends Client {
         } catch (error) {
             console.error("❌ Error al iniciar el bot:", error);
             process.exit(1);
+        }
+    }
+
+    getConfiguredNodes() {
+        return [...this.lavalinkNodes];
+    }
+
+    getNodeForGuild(guildId) {
+        const selected = this.guildNodeSelection.get(guildId);
+        const isValid = this.lavalinkNodes.some(node => node.name === selected);
+        return isValid ? selected : this.defaultNodeName;
+    }
+
+    setNodeForGuild(guildId, nodeName) {
+        const exists = this.lavalinkNodes.some(node => node.name === nodeName);
+        if (!exists) return false;
+        this.guildNodeSelection.set(guildId, nodeName);
+        return true;
+    }
+
+    async switchNodeForGuild(guildId, nodeName) {
+        const exists = this.lavalinkNodes.some(node => node.name === nodeName);
+        if (!exists) {
+            return { success: false, reason: "not-found" };
+        }
+
+        const previousNode = this.getNodeForGuild(guildId);
+        this.guildNodeSelection.set(guildId, nodeName);
+
+        const player = this.manager.players.get(guildId);
+        if (!player) {
+            return {
+                success: true,
+                hadPlayer: false,
+                moved: false,
+                previousNode,
+                currentNode: nodeName
+            };
+        }
+
+        const currentPlayerNode = player.shoukaku?.node?.name;
+        if (currentPlayerNode === nodeName) {
+            return {
+                success: true,
+                hadPlayer: true,
+                moved: false,
+                alreadyOnNode: true,
+                previousNode,
+                currentNode: nodeName
+            };
+        }
+
+        try {
+            const moved = await player.shoukaku.move(nodeName);
+            if (!moved) {
+                this.guildNodeSelection.set(guildId, previousNode);
+                return {
+                    success: false,
+                    reason: "move-failed",
+                    hadPlayer: true,
+                    moved: false,
+                    previousNode,
+                    currentNode: previousNode
+                };
+            }
+
+            return {
+                success: true,
+                hadPlayer: true,
+                moved: true,
+                previousNode,
+                currentNode: nodeName
+            };
+        } catch (error) {
+            this.guildNodeSelection.set(guildId, previousNode);
+            return {
+                success: false,
+                reason: "move-error",
+                error,
+                hadPlayer: true,
+                moved: false,
+                previousNode,
+                currentNode: previousNode
+            };
         }
     }
 

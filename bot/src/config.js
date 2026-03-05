@@ -13,35 +13,30 @@ module.exports = {
         searchMarket: 'MX',        // Mexico market for regional content
     },
 
-    // Lavalink Nodes Configuration (Multi-Node with Auto-Failover)
-    // Priority: lower number = higher priority (preferred node)
+    // Lavalink Nodes Configuration (seleccion manual, sin switch automatico)
     nodes: [
         {
-            name: "Serenetia",
+            name: "local",
+            host: "localhost",
+            port: 2333,
+            password: "maxitodev",
+            secure: false
+        },
+        {
+            name: "serenetia",
             host: "lavalinkv4.serenetia.com",
             port: 443,
             password: "https://dsc.gg/ajidevserver",
-            secure: true,
-            priority: 1
+            secure: true
         },
         {
-            name: "Jirayu",
+            name: "jirayu",
             host: "lavalink.jirayu.net",
             port: 443,
             password: "youshallnotpass",
-            secure: true,
-            priority: 2
+            secure: true
         }
     ],
-
-    // Node Failover Settings
-    nodeFailover: {
-        enabled: true,                    // Auto-switch nodes on failure
-        healthCheckInterval: 30000,       // Health check every 30 seconds
-        maxReconnectAttempts: 3,          // Max reconnect attempts before switching
-        reconnectDelay: 5000,             // Delay between reconnect attempts (ms)
-        preferredNodeRecheck: 300000,     // Recheck preferred node every 5 minutes
-    },
 
     // Bot Settings
     defaultVolume: 80,
@@ -75,8 +70,7 @@ module.exports = {
         success: 0xFF0000,   // Red for success
         error: 0x550000,     // Dark Red
         warning: 0xFFA500,   // Orange
-        music: 0xFF0000,     // Red
-        node: 0x2B2D31       // Dark (Discord background) for node embeds
+        music: 0xFF0000      // Red
     },
 
     // Emojis (Standard)
@@ -98,10 +92,6 @@ module.exports = {
         error: "❌",
         warning: "⚠️",
         autoplay: "♾️",
-        spotify: "🟢",
-        node: "🌐",
-        nodeOnline: "🟢",
-        nodeOffline: "🔴",
-        nodeSwitch: "🔄"
+        spotify: "🟢"
     }
 };

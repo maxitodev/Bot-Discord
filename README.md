@@ -17,7 +17,7 @@
 - [✨ Características](#-características)
 - [🎵 Sistema de Música](#-sistema-de-música)
 - [🟢 Integración con Spotify](#-integración-con-spotify)
-- [🌐 Multi-Nodo Lavalink](#-multi-nodo-lavalink--auto-failover)
+- [🌐 Nodos Lavalink](#-nodos-lavalink-seleccion-manual)
 - [🎮 Gaming](#-gaming)
 - [📰 Noticias y Entretenimiento](#-noticias-y-entretenimiento)
 - [🛡️ Moderación](#️-moderación)
@@ -34,7 +34,7 @@
 |--------|-------------|
 | 🎵 **Música** | Reproducción de alta calidad con Lavalink — YouTube, Spotify, SoundCloud |
 | 🟢 **Spotify** | Búsqueda nativa, playlists, álbumes y artistas de Spotify |
-| 🌐 **Multi-Nodo** | Failover automático entre nodos Lavalink con health monitoring |
+| 🌐 **Nodos Lavalink** | Selección manual de nodo por servidor con cambio controlado por comando |
 | 🎤 **Lyrics** | Letras de canciones sincronizadas automáticamente |
 | 🎮 **Minecraft** | Monitor en tiempo real del servidor de Minecraft |
 | 🔫 **GTA V** | Radar de actividad de jugadores de GTA V / FiveM |
@@ -122,63 +122,31 @@ Al escribir en `/play`, el bot muestra sugerencias en tiempo real con **artista*
 
 ---
 
-## 🌐 Multi-Nodo Lavalink — Auto-Failover
+## 🌐 Nodos Lavalink (Seleccion Manual)
 
-El bot incluye un **sistema profesional de multi-nodo** que garantiza alta disponibilidad de la música. Si un nodo de Lavalink deja de funcionar, el bot **cambia automáticamente** al siguiente nodo disponible sin interrumpir la experiencia.
+El bot trabaja con multiples nodos Lavalink y una politica de **seleccion manual por servidor**.
 
-### ¿Cómo funciona?
+- No hay failover automatico.
+- Cada servidor de Discord guarda su nodo seleccionado.
+- El nodo seleccionado se usa cuando se crea un nuevo player (`/play`, `/spotify`).
+- Si hay reproduccion activa, `/node switch` intenta migrar el player al nuevo nodo.
 
-```
-╔═══════════════════════════════════════════════════════════╗
-║                                                           ║
-║   🟢 Nodo Serenetia (Prioridad 1)  ← ACTIVO              ║
-║       └─ Conectado | Latencia: 45ms | Uptime: 2d 5h      ║
-║                                                           ║
-║   🟢 Nodo Jirayu (Prioridad 2)     ← RESPALDO            ║
-║       └─ Conectado | Latencia: 78ms | Standby             ║
-║                                                           ║
-║   ⚙️ Failover: Automático | Health Check: cada 30s       ║
-║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
-```
+### Nodos configurados por defecto
 
-### Características del Sistema
-
-| Función | Descripción |
-|---------|-------------|
-| 🔄 **Auto-Failover** | Si el nodo activo cae, cambia al siguiente automáticamente |
-| 📊 **Health Monitoring** | Verifica el estado y latencia de cada nodo cada 30 segundos |
-| ⭐ **Prioridad de Nodos** | Los nodos tienen prioridad configurable (menor = preferido) |
-| 🔁 **Auto-Retorno** | Cada 5 min intenta regresar al nodo preferido si está disponible |
-| 🔧 **Selección Manual** | Puedes cambiar de nodo manualmente con `/node switch` |
-| 🚀 **Migración de Players** | Al cambiar de nodo, los players activos se migran automáticamente |
-| 📈 **Reconexión Inteligente** | Intenta reconectar 3 veces antes de cambiar de nodo |
+| Nodo | Endpoint | TLS |
+|------|----------|-----|
+| `local` | `localhost:2333` | No |
+| `serenetia` | `lavalinkv4.serenetia.com:443` | Si |
+| `jirayu` | `lavalink.jirayu.net:443` | Si |
 
 ### Comandos de Nodo
 
 | Comando | Descripción |
 |---------|-------------|
-| `/node status` | Muestra el estado de todos los nodos (latencia, uptime, errores) |
-| `/node switch <nombre>` | Cambia manualmente a un nodo específico |
-| `/node auto` | Restaura la selección automática de nodos |
+| `/node status` | Muestra estado actual de nodos, nodo seleccionado y nodo en uso |
+| `/node switch <nombre>` | Cambia manualmente el nodo activo para el servidor |
 
-### Flujo de Failover
-
-```
-  Nodo falla → Intento 1 de reconexión
-                  ↓ falla
-              Intento 2 de reconexión
-                  ↓ falla
-              Intento 3 de reconexión
-                  ↓ falla
-              🔄 CAMBIO AUTOMÁTICO al siguiente nodo disponible
-                  ↓
-              🚀 Migración de players activos
-                  ↓
-              ✅ Música continúa sin interrupción
-                  ↓
-              ⏱️ Cada 5 min: ¿Nodo preferido volvió? → Regresar
-```
+> Requiere permisos de **Manage Guild**.
 
 ---
 
@@ -274,9 +242,8 @@ Elimina mensajes masivamente de un canal.
 ### 🌐 Nodos Lavalink
 | Comando | Descripción |
 |---------|-------------|
-| `/node status` | Muestra estado de todos los nodos (latencia, uptime, errores) |
+| `/node status` | Muestra estado, nodo seleccionado y nodo en uso |
 | `/node switch <nombre>` | Cambia manualmente a un nodo Lavalink |
-| `/node auto` | Restaura la selección automática de nodos |
 
 ### 🟢 Spotify
 | Comando | Descripción |
@@ -371,35 +338,31 @@ SPOTIFY_CLIENT_SECRET=tu_spotify_client_secret
 ### Configuración del Bot (`bot/src/config.js`)
 
 ```javascript
-// Lavalink - Multi-Nodo con Auto-Failover
-// Priority: menor número = mayor prioridad (nodo preferido)
+// Lavalink - Seleccion manual por servidor
+// El primer nodo del array es el nodo por defecto
 nodes: [
     {
-        name: "Serenetia",
+        name: "local",
+        host: "localhost",
+        port: 2333,
+        password: "maxitodev",
+        secure: false,
+    },
+    {
+        name: "serenetia",
         host: "lavalinkv4.serenetia.com",
         port: 443,
         password: "tu-password",
         secure: true,
-        priority: 1         // Nodo preferido
     },
     {
-        name: "Jirayu",
+        name: "jirayu",
         host: "lavalink.jirayu.net",
         port: 443,
         password: "tu-password",
         secure: true,
-        priority: 2         // Nodo de respaldo
     }
 ],
-
-// Configuración de Failover Automático
-nodeFailover: {
-    enabled: true,                 // Activar auto-failover
-    healthCheckInterval: 30000,    // Health check cada 30 segundos
-    maxReconnectAttempts: 3,       // Intentos antes de cambiar de nodo
-    reconnectDelay: 5000,          // Delay entre intentos (ms)
-    preferredNodeRecheck: 300000,  // Recheck nodo preferido cada 5 min
-},
 
 // Spotify - Configuración de búsqueda
 spotify: {
@@ -422,9 +385,9 @@ bot_v1.0/
 │   ├── package.json            # Dependencias  
 │   └── src/
 │       ├── index.js            # Entry point
-│       ├── config.js           # Configuración global (nodos, failover, etc.)
+│       ├── config.js           # Configuración global (nodos, spotify, etc.)
 │       ├── structures/
-│       │   └── Client.js       # Cliente principal del bot
+│       │   └── Client.js       # Cliente principal + seleccion manual de nodos
 │       ├── commands/
 │       │   ├── general/        # Comandos generales (help, ping, admin...)
 │       │   └── music/          # Comandos de música (play, spotify, node...)
@@ -432,7 +395,6 @@ bot_v1.0/
 │       │   ├── client/         # Eventos de Discord (ready, interactions...)
 │       │   └── player/         # Eventos de Lavalink (nodeConnect, nodeDisconnect...)
 │       └── utils/
-│           ├── NodeManager.js  # Sistema de multi-nodo y auto-failover
 │           ├── AutoMemeSystem.js
 │           ├── NewsSystem.js
 │           ├── MinecraftMonitor.js

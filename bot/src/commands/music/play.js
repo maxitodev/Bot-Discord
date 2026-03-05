@@ -1,5 +1,24 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, PermissionFlagsBits, MessageFlags } = require("discord.js");
 
+// Wait until Lavalink has received the Discord voice server update for this player (max 4s)
+async function waitForPlayerReady(player, maxMs = 4000) {
+    const interval = 100;
+    let elapsed = 0;
+    while (elapsed < maxMs) {
+        try {
+            const guildId = player?.guildId;
+            const node = player?.shoukaku?.node;
+            if (guildId && node) {
+                const conn = node.manager.connections.get(guildId);
+                if (conn?.serverUpdate) return true;
+            }
+        } catch (_) { }
+        await new Promise(r => setTimeout(r, interval));
+        elapsed += interval;
+    }
+    return false;
+}
+
 // Helper to detect Spotify URLs
 function isSpotifyUrl(url) {
     return /^https?:\/\/(open\.)?spotify\.com\/(track|playlist|album|artist)\//i.test(url) ||
@@ -143,15 +162,23 @@ module.exports = {
         try {
             // 2. Crear o recuperar el reproductor
             let player = client.manager.players.get(guild.id);
+            const isNewPlayer = !player;
             if (!player) {
+                const nodeName = client.getNodeForGuild(guild.id);
                 player = await client.manager.createPlayer({
                     guildId: guild.id,
                     voiceId: member.voice.channel.id,
                     textId: channel.id,
+                    channelId: member.voice.channel.id,
+                    textChannelId: channel.id,
+                    nodeName,
                     volume: client.config.defaultVolume || 80,
                     deaf: true
                 });
             }
+
+            // Wait for Lavalink voice session if player is new
+            if (isNewPlayer) await waitForPlayerReady(player);
 
             // 3. Metadata del player
             player.data = player.data || {};
@@ -200,7 +227,10 @@ module.exports = {
             if (res.type === 'PLAYLIST') {
                 for (const track of res.tracks) player.queue.add(track);
 
-                if (!player.playing && !player.paused) player.play();
+                if (!player.playing && !player.paused) {
+                    await waitForPlayerReady(player);
+                    player.play();
+                }
 
                 const spotifyType = isSpotify ? getSpotifyType(query) : null;
                 const typeLabel = spotifyType === 'album' ? '💿 Álbum' :
@@ -225,7 +255,10 @@ module.exports = {
             if (isUrl || res.tracks.length === 1 || query.startsWith('http')) {
                 const track = res.tracks[0];
                 player.queue.add(track);
-                if (!player.playing && !player.paused) player.play();
+                if (!player.playing && !player.paused) {
+                    await waitForPlayerReady(player);
+                    player.play();
+                }
 
                 const isTrackSpotify = isSpotify || track.sourceName === 'spotify';
                 const trackColor = isTrackSpotify ? SPOTIFY_COLOR : (client.config.colors.success || 0xFF0000);
@@ -298,7 +331,10 @@ module.exports = {
                         const track = res.tracks[selectedIndex];
 
                         player.queue.add(track);
-                        if (!player.playing && !player.paused) player.play();
+                        if (!player.playing && !player.paused) {
+                            await waitForPlayerReady(player);
+                            player.play();
+                        }
 
                         const isTrackSpotify = track.sourceName === 'spotify';
                         const trackColor = isTrackSpotify ? SPOTIFY_COLOR : (client.config.colors.success || 0xFF0000);

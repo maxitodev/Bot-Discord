@@ -1,196 +1,222 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require("discord.js");
+const {
+    SlashCommandBuilder,
+    EmbedBuilder,
+    PermissionFlagsBits,
+    MessageFlags
+} = require("discord.js");
+
+function getStateMeta(state) {
+    switch (state) {
+        case 1:
+            return { icon: "🟢", label: "Conectado" };
+        case 0:
+            return { icon: "🟡", label: "Conectando" };
+        case 2:
+            return { icon: "🟠", label: "Desconectando" };
+        case 3:
+            return { icon: "🔴", label: "Desconectado" };
+        default:
+            return { icon: "⚪", label: "Desconocido" };
+    }
+}
+
+function getNodeRuntime(client, nodeName) {
+    return client.manager?.shoukaku?.nodes?.get(nodeName) || null;
+}
+
+function getNodeStatusLine(client, nodeName) {
+    const runtimeNode = getNodeRuntime(client, nodeName);
+    if (!runtimeNode) return { icon: "🔴", label: "No inicializado" };
+    return getStateMeta(runtimeNode.state);
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("node")
-        .setDescription("🌐 Gestión de nodos Lavalink")
+        .setDescription("🌐 Gestion manual de nodos Lavalink")
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
         .addSubcommand(sub =>
             sub
                 .setName("status")
-                .setDescription("Ver el estado de todos los nodos Lavalink")
+                .setDescription("Ver estado y seleccion de nodos")
         )
         .addSubcommand(sub =>
             sub
                 .setName("switch")
-                .setDescription("Cambiar manualmente a un nodo Lavalink específico")
+                .setDescription("Cambiar el nodo Lavalink activo para este servidor")
                 .addStringOption(option =>
                     option
                         .setName("nombre")
-                        .setDescription("Nombre del nodo al que deseas cambiar")
+                        .setDescription("Nodo al que deseas cambiar")
                         .setRequired(true)
                         .setAutocomplete(true)
                 )
-        )
-        .addSubcommand(sub =>
-            sub
-                .setName("auto")
-                .setDescription("Restaurar la selección automática de nodos")
         ),
 
     async autocomplete(interaction, client) {
-        const focusedValue = interaction.options.getFocused().toLowerCase();
-        const nodeManager = client.nodeManager;
+        const focused = interaction.options.getFocused().toLowerCase();
+        const guildId = interaction.guildId;
+        const selectedNode = guildId ? client.getNodeForGuild(guildId) : null;
+        const player = guildId ? client.manager.players.get(guildId) : null;
+        const playerNode = player?.shoukaku?.node?.name || null;
 
-        if (!nodeManager) return interaction.respond([]);
-
-        const names = nodeManager.getNodeNames();
-        const filtered = names
-            .filter(name => name.toLowerCase().includes(focusedValue))
-            .map(name => {
-                const status = nodeManager.getStatus();
-                const node = status.nodes.find(n => n.name === name);
-                const statusIcon = node?.status === 'connected' ? '🟢' : '🔴';
-                const activeLabel = node?.isActive ? ' (Activo)' : '';
+        const matches = client.getConfiguredNodes()
+            .filter(node => node.name.toLowerCase().includes(focused))
+            .map(node => {
+                const status = getNodeStatusLine(client, node.name);
+                const tags = [];
+                if (node.name === selectedNode) tags.push("seleccionado");
+                if (node.name === playerNode) tags.push("en uso");
+                const suffix = tags.length ? ` • ${tags.join(" • ")}` : "";
                 return {
-                    name: `${statusIcon} ${name}${activeLabel}`,
-                    value: name
+                    name: `${status.icon} ${node.name}${suffix}`.slice(0, 100),
+                    value: node.name
                 };
-            });
+            })
+            .slice(0, 25);
 
-        await interaction.respond(filtered.slice(0, 25));
+        await interaction.respond(matches);
     },
 
     async execute(interaction, client) {
         const subcommand = interaction.options.getSubcommand();
-        const nodeManager = client.nodeManager;
 
-        if (!nodeManager) {
-            return interaction.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor(client.config.colors.error)
-                        .setDescription(`${client.config.emojis.error} El sistema de gestión de nodos no está disponible.`)
-                ],
-                ephemeral: true
-            });
+        if (subcommand === "status") {
+            return this.handleStatus(interaction, client);
         }
 
-        switch (subcommand) {
-            case "status":
-                return this._handleStatus(interaction, client, nodeManager);
-            case "switch":
-                return this._handleSwitch(interaction, client, nodeManager);
-            case "auto":
-                return this._handleAuto(interaction, client, nodeManager);
+        if (subcommand === "switch") {
+            return this.handleSwitch(interaction, client);
         }
+
+        return interaction.reply({
+            content: `${client.config.emojis.error} Subcomando no soportado.`,
+            flags: MessageFlags.Ephemeral
+        });
     },
 
-    async _handleStatus(interaction, client, nodeManager) {
-        const status = nodeManager.getStatus();
-        const { emojis, colors } = client.config;
+    async handleStatus(interaction, client) {
+        const guildId = interaction.guildId;
+        const configuredNodes = client.getConfiguredNodes();
+        const selectedNode = client.getNodeForGuild(guildId);
+        const player = client.manager.players.get(guildId);
+        const playerNode = player?.shoukaku?.node?.name || "Ninguno";
 
-        const nodeFields = status.nodes.map(node => {
-            const statusIcon = node.status === 'connected' ? emojis.nodeOnline : emojis.nodeOffline;
-            const activeTag = node.isActive ? ' **⟨ ACTIVO ⟩**' : '';
-            const preferredTag = node.isPreferred ? ' ⭐' : '';
-            const manualTag = node.isManualOverride ? ' 🔧' : '';
-
-            let details = [];
-            details.push(`Estado: ${statusIcon} ${this._translateStatus(node.status)}`);
-            details.push(`Prioridad: \`#${node.priority}\``);
-
-            if (node.latency !== null) {
-                const latencyColor = node.latency < 100 ? '🟢' : node.latency < 300 ? '🟡' : '🔴';
-                details.push(`Latencia: ${latencyColor} \`${node.latency}ms\``);
-            }
-
-            if (node.uptime) {
-                details.push(`Uptime: \`${this._formatUptime(node.uptime)}\``);
-            }
-
-            if (node.errorCount > 0) {
-                details.push(`Errores: \`${node.errorCount}\``);
-            }
-
-            if (node.lastError) {
-                details.push(`Último error: \`${node.lastError.substring(0, 80)}\``);
-            }
+        const fields = configuredNodes.map(node => {
+            const status = getNodeStatusLine(client, node.name);
+            const isSelected = node.name === selectedNode;
+            const isPlayerNode = node.name === playerNode;
 
             return {
-                name: `${statusIcon} ${node.name}${activeTag}${preferredTag}${manualTag}`,
-                value: details.join('\n'),
+                name: `${status.icon} ${node.name}${isSelected ? "  •  Seleccionado" : ""}`,
+                value:
+                    `Estado: ${status.label}\n` +
+                    `Endpoint: \`${node.host}:${node.port}\`\n` +
+                    `TLS: ${node.secure ? "Activado" : "Desactivado"}\n` +
+                    `Uso actual: ${isPlayerNode ? "Reproduciendo aqui" : "Sin reproduccion"}`,
                 inline: true
             };
         });
 
         const embed = new EmbedBuilder()
-            .setColor(colors.node || colors.main)
-            .setAuthor({ name: 'Estado de Nodos Lavalink', iconURL: client.user.displayAvatarURL() })
+            .setColor(client.config.colors.main || 0x2B2D31)
+            .setAuthor({
+                name: "Control de Nodos Lavalink",
+                iconURL: client.user.displayAvatarURL()
+            })
             .setDescription(
-                `${emojis.node} **Sistema Multi-Nodo**\n` +
-                `Nodo activo: **${status.activeNode || 'Ninguno'}**\n` +
-                `Failover automático: ${status.failoverEnabled ? '`Activado`' : '`Desactivado`'}\n` +
-                `Modo: ${status.manualOverride ? `\`Manual\` (${status.manualOverride})` : '`Automático`'}`
+                "Seleccion manual activa.\n" +
+                "No hay cambio automatico de nodo en fallos."
             )
-            .addFields(nodeFields)
-            .setFooter({ text: '⭐ = Preferido  |  🔧 = Selección manual  |  Usa /node switch para cambiar' })
+            .addFields(
+                {
+                    name: "Contexto del servidor",
+                    value:
+                        `Nodo seleccionado: **${selectedNode}**\n` +
+                        `Nodo del player: **${playerNode}**`,
+                    inline: false
+                },
+                ...fields
+            )
+            .setFooter({ text: "Usa /node switch para cambiar manualmente" })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 
-    async _handleSwitch(interaction, client, nodeManager) {
-        const nodeName = interaction.options.getString("nombre");
-        const { emojis, colors } = client.config;
-
-        const result = nodeManager.switchToNode(nodeName);
-
-        if (result.success) {
-            const embed = new EmbedBuilder()
-                .setColor(colors.success)
-                .setDescription(
-                    `${emojis.nodeSwitch} **Nodo Lavalink cambiado**\n\n` +
-                    `${emojis.nodeOffline} ~~${result.previous}~~ → ${emojis.nodeOnline} **${result.current}**\n\n` +
-                    `> *Modo manual activado. Usa \`/node auto\` para restaurar la selección automática.*`
-                )
-                .setTimestamp();
-
-            await interaction.reply({ embeds: [embed] });
-        } else {
-            const embed = new EmbedBuilder()
-                .setColor(colors.error)
-                .setDescription(`${emojis.error} ${result.message}`)
-                .setTimestamp();
-
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+    async handleSwitch(interaction, client) {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+            return interaction.reply({
+                content: `${client.config.emojis.error} Necesitas el permiso \`Gestionar servidor\` para usar este comando.`,
+                flags: MessageFlags.Ephemeral
+            });
         }
-    },
 
-    async _handleAuto(interaction, client, nodeManager) {
-        const { emojis, colors } = client.config;
-        const result = nodeManager.clearManualOverride();
+        const guildId = interaction.guildId;
+        const nodeName = interaction.options.getString("nombre", true);
+        const configuredNodes = client.getConfiguredNodes();
+        const targetNode = configuredNodes.find(node => node.name === nodeName);
+
+        if (!targetNode) {
+            return interaction.reply({
+                content: `${client.config.emojis.error} El nodo \`${nodeName}\` no existe en la configuracion.`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        const runtimeNode = getNodeRuntime(client, nodeName);
+        if (!runtimeNode || runtimeNode.state !== 1) {
+            const state = getNodeStatusLine(client, nodeName);
+            return interaction.reply({
+                content:
+                    `${client.config.emojis.error} El nodo \`${nodeName}\` no esta listo para cambio manual.\n` +
+                    `Estado actual: ${state.icon} ${state.label}`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        const previousNode = client.getNodeForGuild(guildId);
+        const currentPlayerNode = client.manager.players.get(guildId)?.shoukaku?.node?.name;
+        if (previousNode === nodeName && currentPlayerNode === nodeName) {
+            return interaction.reply({
+                content: `${client.config.emojis.warning} Ese nodo ya estaba seleccionado para este servidor.`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const result = await client.switchNodeForGuild(guildId, nodeName);
+
+        if (!result.success) {
+            return interaction.editReply({
+                content: `${client.config.emojis.error} No se pudo completar el cambio de nodo.`
+            });
+        }
+
+        const playerMessage = !result.hadPlayer
+            ? "No habia reproductor activo. El cambio aplicara a la proxima reproduccion."
+            : result.alreadyOnNode
+                ? "El reproductor ya estaba usando ese nodo."
+                : result.moved
+                    ? "El reproductor activo fue migrado al nuevo nodo."
+                    : "El cambio se guardo, pero no se movio el reproductor.";
 
         const embed = new EmbedBuilder()
-            .setColor(colors.success)
+            .setColor(client.config.colors.success || 0x00B894)
+            .setTitle("Cambio manual de nodo aplicado")
             .setDescription(
-                `${emojis.nodeSwitch} **Modo Automático Restaurado**\n\n` +
-                `${result.message}\n\n` +
-                `> *El bot seleccionará automáticamente el mejor nodo disponible y cambiará si uno falla.*`
+                `Servidor: **${interaction.guild.name}**\n` +
+                `Antes: \`${previousNode}\`\n` +
+                `Ahora: \`${nodeName}\``
             )
+            .addFields({
+                name: "Resultado",
+                value: playerMessage,
+                inline: false
+            })
+            .setFooter({ text: "Modo manual activo: no hay switch automatico" })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
-    },
-
-    _translateStatus(status) {
-        const statusMap = {
-            'connected': 'Conectado',
-            'connecting': 'Conectando...',
-            'disconnected': 'Desconectado',
-            'error': 'Error'
-        };
-        return statusMap[status] || status;
-    },
-
-    _formatUptime(ms) {
-        const seconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-
-        if (days > 0) return `${days}d ${hours % 24}h ${minutes % 60}m`;
-        if (hours > 0) return `${hours}h ${minutes % 60}m`;
-        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-        return `${seconds}s`;
+        return interaction.editReply({ embeds: [embed] });
     }
 };

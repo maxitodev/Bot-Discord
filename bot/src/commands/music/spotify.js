@@ -77,10 +77,14 @@ module.exports = {
             // Get or create player
             let player = client.manager.players.get(guild.id);
             if (!player) {
+                const nodeName = client.getNodeForGuild(guild.id);
                 player = await client.manager.createPlayer({
                     guildId: guild.id,
                     voiceId: member.voice.channel.id,
                     textId: channel.id,
+                    channelId: member.voice.channel.id,
+                    textChannelId: channel.id,
+                    nodeName,
                     volume: client.config.defaultVolume || 80,
                     deaf: true
                 });
