@@ -2,6 +2,12 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 
 const SPOTIFY_COLOR = 0x1DB954;
 
+function getRetrySecondsFromError(error) {
+    const message = error?.message || error?.error || String(error || "");
+    const match = message.match(/Try again in\s+(\d+)\s+seconds/i);
+    return match ? Number(match[1]) : null;
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("spotify")
@@ -46,6 +52,7 @@ module.exports = {
     async execute(interaction, client) {
         const subcommand = interaction.options.getSubcommand();
         const { member, guild, channel } = interaction;
+        const nodeName = client.getNodeForGuild(guild.id);
 
         // Validaciones
         if (!member.voice.channel) {
@@ -74,10 +81,19 @@ module.exports = {
         await interaction.deferReply();
 
         try {
+            const blockInfo = client.getNodeBlockInfo(nodeName);
+            if (blockInfo) {
+                return interaction.editReply({
+                    content:
+                        `${client.config.emojis.error} **El nodo seleccionado (\`${nodeName}\`) esta bloqueado temporalmente por REST.**\n` +
+                        `Tiempo restante: **${blockInfo.remainingSeconds}s**\n` +
+                        `Cambia de nodo con \`/node switch nombre:<nodo>\`.`
+                });
+            }
+
             // Get or create player
             let player = client.manager.players.get(guild.id);
             if (!player) {
-                const nodeName = client.getNodeForGuild(guild.id);
                 player = await client.manager.createPlayer({
                     guildId: guild.id,
                     voiceId: member.voice.channel.id,
@@ -97,7 +113,8 @@ module.exports = {
 
                     const res = await client.manager.search(query, {
                         requester: member.user,
-                        engine: 'spotify'
+                        engine: 'spotify',
+                        nodeName
                     });
 
                     if (!res || !res.tracks || res.tracks.length === 0) {
@@ -142,7 +159,10 @@ module.exports = {
                         });
                     }
 
-                    const res = await client.manager.search(url, { requester: member.user });
+                    const res = await client.manager.search(url, {
+                        requester: member.user,
+                        nodeName
+                    });
 
                     if (!res || !res.tracks || res.tracks.length === 0) {
                         return interaction.editReply({
@@ -189,7 +209,10 @@ module.exports = {
                         });
                     }
 
-                    const res = await client.manager.search(url, { requester: member.user });
+                    const res = await client.manager.search(url, {
+                        requester: member.user,
+                        nodeName
+                    });
 
                     if (!res || !res.tracks || res.tracks.length === 0) {
                         return interaction.editReply({
@@ -240,7 +263,8 @@ module.exports = {
 
                     const res = await client.manager.search(query, {
                         requester: member.user,
-                        engine: 'spotify'
+                        engine: 'spotify',
+                        nodeName
                     });
 
                     if (!res || !res.tracks || res.tracks.length === 0) {
@@ -277,6 +301,16 @@ module.exports = {
             }
 
         } catch (error) {
+            const retrySeconds = getRetrySecondsFromError(error);
+            if (retrySeconds) {
+                client.registerNodeRestBlock(nodeName, retrySeconds, error.message || String(error));
+                return interaction.editReply({
+                    content:
+                        `${client.config.emojis.error} **El nodo \`${nodeName}\` excedio el limite REST.**\n` +
+                        `Reintenta en **${retrySeconds}s** o cambia de nodo con \`/node switch nombre:<nodo>\`.`
+                }).catch(() => { });
+            }
+
             console.error("Error en spotify command:", error);
             return interaction.editReply({
                 content: `${client.config.emojis.error} **Error de Spotify:** ${error.message}`

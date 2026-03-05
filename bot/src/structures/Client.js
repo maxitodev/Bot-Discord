@@ -8,6 +8,106 @@ const path = require("path");
 const AutoMemeSystem = require("../utils/AutoMemeSystem");
 const ConfigManager = require("../utils/ConfigManager");
 
+const TRACK_NEGATIVE_KEYWORDS = [
+    "live",
+    "karaoke",
+    "cover",
+    "slowed",
+    "sped up",
+    "nightcore",
+    "remix",
+    "reverb",
+    "concert",
+    "performance",
+    "fanmade",
+    "reaction"
+];
+
+function normalizeText(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+}
+
+function scoreResolvedCandidate(target, candidate) {
+    const targetTitle = normalizeText(target.title);
+    const targetAuthor = normalizeText(target.author);
+
+    const candidateTitle = normalizeText(candidate?.title);
+    const candidateAuthor = normalizeText(candidate?.author);
+
+    let score = 0;
+
+    if (candidateTitle === targetTitle) score += 45;
+    else if (candidateTitle.includes(targetTitle)) score += 25;
+    else if (targetTitle.includes(candidateTitle)) score += 15;
+
+    if (targetAuthor && candidateAuthor.includes(targetAuthor)) score += 30;
+    if (targetAuthor && candidateAuthor.includes(`${targetAuthor} - topic`)) score += 10;
+
+    const targetLength = Number(target.length || 0);
+    const candidateLength = Number(candidate?.length || 0);
+    if (targetLength > 0 && candidateLength > 0) {
+        const diff = Math.abs(targetLength - candidateLength);
+        if (diff <= 2000) score += 30;
+        else if (diff <= 5000) score += 20;
+        else if (diff <= 10000) score += 10;
+        else if (diff >= 30000) score -= 20;
+    }
+
+    if (candidateTitle.includes("official audio") || candidateTitle.endsWith(" audio")) {
+        score += 8;
+    }
+
+    for (const keyword of TRACK_NEGATIVE_KEYWORDS) {
+        if (candidateTitle.includes(keyword)) score -= 25;
+    }
+
+    return score;
+}
+
+async function resolveSpotifyTrackWithMusicSearch(options) {
+    if (!this?.kazagumo) return false;
+    if (this.sourceName !== "spotify") return false;
+
+    const query = [this.author, this.title].filter(Boolean).join(" - ");
+    if (!query) return false;
+
+    const requester = options?.player?.data?.requester ?? this.requester;
+
+    const result = options?.player
+        ? await options.player.search(query, {
+            source: "ytmsearch:",
+            requester
+        }).catch(() => null)
+        : await this.kazagumo.search(query, {
+            engine: "youtube_music",
+            requester
+        }).catch(() => null);
+
+    if (!result?.tracks?.length) return false;
+
+    const ranked = result.tracks
+        .slice(0, 10)
+        .map(track => ({
+            track,
+            score: scoreResolvedCandidate(this, track)
+        }))
+        .sort((a, b) => b.score - a.score);
+
+    const best = ranked[0];
+    if (!best || best.score < 15) return false;
+
+    const raw = best.track.getRaw()._raw;
+    if (!raw?.encoded) return false;
+
+    this.track = raw.encoded;
+    this.realUri = raw.info.uri;
+    this.length = raw.info.length;
+    return true;
+}
+
 
 class MusicBot extends Client {
     constructor() {
@@ -72,6 +172,7 @@ class MusicBot extends Client {
         // Manual node selection per guild (no automatic failover)
         this.defaultNodeName = this.lavalinkNodes[0].name;
         this.guildNodeSelection = new Map();
+        this.nodeRestBlocks = new Map();
 
         const nodes = this.lavalinkNodes.map(node => ({
             name: node.name,
@@ -100,7 +201,9 @@ class MusicBot extends Client {
 
         // Initialize Kazagumo Manager with Shoukaku + Spotify
         this.manager = new Kazagumo({
-            defaultSearchEngine: "spotify",
+            // Use YouTube Music for fallback resolution to avoid generic full-video matches.
+            defaultSearchEngine: "youtube_music",
+            trackResolver: resolveSpotifyTrackWithMusicSearch,
             plugins: spotifyPlugins,
             send: (guildId, payload) => {
                 const guild = this.guilds.cache.get(guildId);
@@ -197,6 +300,38 @@ class MusicBot extends Client {
         return [...this.lavalinkNodes];
     }
 
+    registerNodeRestBlock(nodeName, seconds, reason) {
+        const cooldownSeconds = Number(seconds);
+        if (!Number.isFinite(cooldownSeconds) || cooldownSeconds <= 0) return;
+
+        const expiresAt = Date.now() + (cooldownSeconds * 1000);
+        this.nodeRestBlocks.set(nodeName, {
+            expiresAt,
+            reason: reason || "Rate limit"
+        });
+    }
+
+    clearNodeRestBlock(nodeName) {
+        this.nodeRestBlocks.delete(nodeName);
+    }
+
+    getNodeBlockInfo(nodeName) {
+        const info = this.nodeRestBlocks.get(nodeName);
+        if (!info) return null;
+
+        const remainingMs = info.expiresAt - Date.now();
+        if (remainingMs <= 0) {
+            this.nodeRestBlocks.delete(nodeName);
+            return null;
+        }
+
+        return {
+            reason: info.reason,
+            remainingMs,
+            remainingSeconds: Math.ceil(remainingMs / 1000)
+        };
+    }
+
     getNodeForGuild(guildId) {
         const selected = this.guildNodeSelection.get(guildId);
         const isValid = this.lavalinkNodes.some(node => node.name === selected);
@@ -214,6 +349,17 @@ class MusicBot extends Client {
         const exists = this.lavalinkNodes.some(node => node.name === nodeName);
         if (!exists) {
             return { success: false, reason: "not-found" };
+        }
+
+        const blockInfo = this.getNodeBlockInfo(nodeName);
+        if (blockInfo) {
+            return {
+                success: false,
+                reason: "rest-blocked",
+                currentNode: this.getNodeForGuild(guildId),
+                blockedNode: nodeName,
+                blockInfo
+            };
         }
 
         const previousNode = this.getNodeForGuild(guildId);

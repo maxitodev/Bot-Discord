@@ -106,6 +106,7 @@ module.exports = {
             const status = getNodeStatusLine(client, node.name);
             const isSelected = node.name === selectedNode;
             const isPlayerNode = node.name === playerNode;
+            const blockInfo = client.getNodeBlockInfo(node.name);
 
             return {
                 name: `${status.icon} ${node.name}${isSelected ? "  •  Seleccionado" : ""}`,
@@ -113,7 +114,10 @@ module.exports = {
                     `Estado: ${status.label}\n` +
                     `Endpoint: \`${node.host}:${node.port}\`\n` +
                     `TLS: ${node.secure ? "Activado" : "Desactivado"}\n` +
-                    `Uso actual: ${isPlayerNode ? "Reproduciendo aqui" : "Sin reproduccion"}`,
+                    `Uso actual: ${isPlayerNode ? "Reproduciendo aqui" : "Sin reproduccion"}` +
+                    (blockInfo
+                        ? `\nBloqueo REST: ⏳ ${blockInfo.remainingSeconds}s`
+                        : ""),
                 inline: true
             };
         });
@@ -164,6 +168,17 @@ module.exports = {
             });
         }
 
+        const blocked = client.getNodeBlockInfo(nodeName);
+        if (blocked) {
+            return interaction.reply({
+                content:
+                    `${client.config.emojis.error} El nodo \`${nodeName}\` esta bloqueado temporalmente por REST.\n` +
+                    `Tiempo restante: **${blocked.remainingSeconds}s**\n` +
+                    `Sugerencia: cambia a otro nodo con \`/node switch\`.`,
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
         const runtimeNode = getNodeRuntime(client, nodeName);
         if (!runtimeNode || runtimeNode.state !== 1) {
             const state = getNodeStatusLine(client, nodeName);
@@ -188,6 +203,15 @@ module.exports = {
         const result = await client.switchNodeForGuild(guildId, nodeName);
 
         if (!result.success) {
+            if (result.reason === "rest-blocked") {
+                const seconds = result.blockInfo?.remainingSeconds || "?";
+                return interaction.editReply({
+                    content:
+                        `${client.config.emojis.error} El nodo \`${nodeName}\` sigue bloqueado por REST.\n` +
+                        `Tiempo restante: **${seconds}s**`
+                });
+            }
+
             return interaction.editReply({
                 content: `${client.config.emojis.error} No se pudo completar el cambio de nodo.`
             });

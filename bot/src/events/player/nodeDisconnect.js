@@ -1,6 +1,7 @@
 module.exports = {
     name: "nodeDisconnect",
     execute(name, code, reason, client) {
+        client.clearNodeRestBlock(name);
         console.warn(`⚠️ Nodo Lavalink "${name}" desconectado — Code: ${code}, Reason: ${reason || 'N/A'}`);
     }
 };

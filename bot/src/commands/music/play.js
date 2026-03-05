@@ -46,6 +46,12 @@ function getTrackSourceLabel(track) {
     return '🔴 YouTube';
 }
 
+function getRetrySecondsFromError(error) {
+    const message = error?.message || error?.error || String(error || "");
+    const match = message.match(/Try again in\s+(\d+)\s+seconds/i);
+    return match ? Number(match[1]) : null;
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("play")
@@ -71,6 +77,7 @@ module.exports = {
 
     async autocomplete(interaction, client) {
         const focusedValue = interaction.options.getFocused();
+        const nodeName = interaction.guildId ? client.getNodeForGuild(interaction.guildId) : undefined;
 
         // Si no hay texto o es muy corto, no sugerir nada
         if (!focusedValue || focusedValue.length < 3) {
@@ -96,7 +103,11 @@ module.exports = {
             // Obtener el motor de búsqueda seleccionado
             const selectedEngine = interaction.options.getString("fuente") || 'spotify';
 
-            const res = await client.manager.search(focusedValue, { engine: selectedEngine, requester: interaction.user });
+            const res = await client.manager.search(focusedValue, {
+                engine: selectedEngine,
+                requester: interaction.user,
+                nodeName
+            });
 
             if (!res || !res.tracks || res.tracks.length === 0) {
                 return interaction.respond([{ name: `🔍 Buscar: "${focusedValue.substring(0, 80)}"`, value: focusedValue }]);
@@ -131,6 +142,7 @@ module.exports = {
         const { options, member, guild, channel } = interaction;
         const query = options.getString("busqueda");
         const preferredEngine = options.getString("fuente"); // youtube, spotify, soundcloud o null
+        const nodeName = client.getNodeForGuild(guild.id);
 
         // 1. Validaciones iniciales
         if (!member.voice.channel) {
@@ -160,11 +172,20 @@ module.exports = {
         await interaction.deferReply();
 
         try {
+            const blockInfo = client.getNodeBlockInfo(nodeName);
+            if (blockInfo) {
+                return interaction.editReply({
+                    content:
+                        `${client.config.emojis.error} **El nodo seleccionado (\`${nodeName}\`) esta bloqueado temporalmente por REST.**\n` +
+                        `Tiempo restante: **${blockInfo.remainingSeconds}s**\n` +
+                        `Cambia de nodo con \`/node switch nombre:<nodo>\`.`
+                });
+            }
+
             // 2. Crear o recuperar el reproductor
             let player = client.manager.players.get(guild.id);
             const isNewPlayer = !player;
             if (!player) {
-                const nodeName = client.getNodeForGuild(guild.id);
                 player = await client.manager.createPlayer({
                     guildId: guild.id,
                     voiceId: member.voice.channel.id,
@@ -202,7 +223,8 @@ module.exports = {
 
             const res = await client.manager.search(query, {
                 requester: member.user,
-                engine: searchEngine
+                engine: searchEngine,
+                nodeName
             });
 
             // 5. Manejar "Sin Resultados" o Errores
@@ -367,6 +389,16 @@ module.exports = {
             }
 
         } catch (error) {
+            const retrySeconds = getRetrySecondsFromError(error);
+            if (retrySeconds) {
+                client.registerNodeRestBlock(nodeName, retrySeconds, error.message || String(error));
+                return interaction.editReply({
+                    content:
+                        `${client.config.emojis.error} **El nodo \`${nodeName}\` excedio el limite REST.**\n` +
+                        `Reintenta en **${retrySeconds}s** o cambia de nodo con \`/node switch nombre:<nodo>\`.`
+                }).catch(() => { });
+            }
+
             console.error("Error en play command:", error);
             return interaction.editReply({
                 content: `${client.config.emojis.error} **Ocurrió un error inesperado:** ${error.message}`
