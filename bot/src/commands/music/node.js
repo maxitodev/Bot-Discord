@@ -102,11 +102,23 @@ module.exports = {
         const player = client.manager.players.get(guildId);
         const playerNode = player?.shoukaku?.node?.name || "Ninguno";
 
+        // Get health monitor status for extra info
+        const healthStatus = client.nodeHealthMonitor?.getStatus() || [];
+
         const fields = configuredNodes.map(node => {
             const status = getNodeStatusLine(client, node.name);
             const isSelected = node.name === selectedNode;
             const isPlayerNode = node.name === playerNode;
             const blockInfo = client.getNodeBlockInfo(node.name);
+            const healthInfo = healthStatus.find(h => h.name === node.name);
+
+            let statusExtra = "";
+            if (blockInfo) {
+                statusExtra += `\nBloqueo REST: ⏳ ${blockInfo.remainingSeconds}s`;
+            }
+            if (healthInfo && healthInfo.reconnectAttempts > 0) {
+                statusExtra += `\n🩺 Reconectando... (intento #${healthInfo.reconnectAttempts})`;
+            }
 
             return {
                 name: `${status.icon} ${node.name}${isSelected ? "  •  Seleccionado" : ""}`,
@@ -115,9 +127,7 @@ module.exports = {
                     `Endpoint: \`${node.host}:${node.port}\`\n` +
                     `TLS: ${node.secure ? "Activado" : "Desactivado"}\n` +
                     `Uso actual: ${isPlayerNode ? "Reproduciendo aqui" : "Sin reproduccion"}` +
-                    (blockInfo
-                        ? `\nBloqueo REST: ⏳ ${blockInfo.remainingSeconds}s`
-                        : ""),
+                    statusExtra,
                 inline: true
             };
         });
@@ -130,7 +140,7 @@ module.exports = {
             })
             .setDescription(
                 "Seleccion manual activa.\n" +
-                "No hay cambio automatico de nodo en fallos."
+                "Los nodos desconectados se reconectan automaticamente."
             )
             .addFields(
                 {
@@ -142,7 +152,7 @@ module.exports = {
                 },
                 ...fields
             )
-            .setFooter({ text: "Usa /node switch para cambiar manualmente" })
+            .setFooter({ text: "Reconexión automática activa • /node switch para cambiar" })
             .setTimestamp();
 
         return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });

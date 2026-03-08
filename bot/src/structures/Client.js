@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const AutoMemeSystem = require("../utils/AutoMemeSystem");
 const ConfigManager = require("../utils/ConfigManager");
+const NodeHealthMonitor = require("../utils/NodeHealthMonitor");
 
 const TRACK_NEGATIVE_KEYWORDS = [
     "live",
@@ -218,6 +219,13 @@ class MusicBot extends Client {
             restTimeout: 10000
         });
 
+        // Initialize Node Health Monitor (auto-reconnects disconnected nodes)
+        this.nodeHealthMonitor = new NodeHealthMonitor(this, {
+            checkInterval: 30_000,      // Check every 30 seconds
+            maxReconnectAttempts: 0,    // Unlimited retries
+            reconnectCooldown: 15_000   // Start with 15s between attempts (exponential backoff)
+        });
+
         console.log(`🌐 Nodos Lavalink cargados: ${this.lavalinkNodes.map(n => n.name).join(", ")}`);
         console.log(`🎯 Nodo por defecto: ${this.defaultNodeName} (seleccion manual por servidor)`);
 
@@ -290,6 +298,8 @@ class MusicBot extends Client {
     async start() {
         try {
             await this.login(config.token);
+            // Start health monitor after login so Shoukaku has initialized
+            this.nodeHealthMonitor.start();
         } catch (error) {
             console.error("❌ Error al iniciar el bot:", error);
             process.exit(1);

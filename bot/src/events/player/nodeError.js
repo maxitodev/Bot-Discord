@@ -11,5 +11,10 @@ module.exports = {
         }
 
         console.error(`❌ Error en nodo "${name}":`, rawMessage);
+
+        // Trigger health monitor to check this node's state after error
+        if (client.nodeHealthMonitor) {
+            setTimeout(() => client.nodeHealthMonitor.forceCheck(), 3000);
+        }
     }
 };
