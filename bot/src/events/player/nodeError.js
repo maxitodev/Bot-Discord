@@ -1,6 +1,8 @@
 module.exports = {
     name: "nodeError",
-    execute(name, error, client) {
+    execute(name, ...args) {
+        const client = args.pop();
+        const error = args[0] || {};
         const rawMessage = error?.message || error?.error || String(error);
         const retryMatch = rawMessage.match(/Try again in\s+(\d+)\s+seconds/i);
 

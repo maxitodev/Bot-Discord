@@ -1,6 +1,7 @@
 module.exports = {
     name: "nodeConnect",
-    execute(name, client) {
+    execute(name, ...args) {
+        const client = args.pop();
         client.clearNodeRestBlock(name);
         console.log(`✅ Nodo Lavalink "${name}" conectado correctamente`);
 
